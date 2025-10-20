@@ -38,19 +38,35 @@ with conectar() as con:
 # ------------------------------
 # Página principal
 # ------------------------------
-@app.route('/', methods=['GET'])
+@app.route('/')
 def index():
-    search = request.args.get('search', '')  # <-- captura lo que el usuario escribe
+    search = request.args.get('search', '')
+
     conn = sqlite3.connect('productos.db')
     conn.row_factory = sqlite3.Row
 
     if search:
-        query = "SELECT * FROM productos WHERE nombre LIKE ? OR descripcion LIKE ?"
-        productos = conn.execute(query, (f'%{search}%', f'%{search}%')).fetchall()
+        productos = conn.execute("""
+            SELECT p.*, 
+                   MIN(pr.precio) AS precio_minimo, 
+                   (SELECT proveedor FROM precios pr2 WHERE pr2.producto_id = p.id ORDER BY pr2.precio ASC LIMIT 1) AS proveedor_minimo
+            FROM productos p
+            LEFT JOIN precios pr ON p.id = pr.producto_id
+            WHERE p.nombre LIKE ? OR p.descripcion LIKE ?
+            GROUP BY p.id
+        """, (f"%{search}%", f"%{search}%")).fetchall()
     else:
-        productos = conn.execute('SELECT * FROM productos').fetchall()
+        productos = conn.execute("""
+            SELECT p.*, 
+                   MIN(pr.precio) AS precio_minimo, 
+                   (SELECT proveedor FROM precios pr2 WHERE pr2.producto_id = p.id ORDER BY pr2.precio ASC LIMIT 1) AS proveedor_minimo
+            FROM productos p
+            LEFT JOIN precios pr ON p.id = pr.producto_id
+            GROUP BY p.id
+        """).fetchall()
 
     conn.close()
+
     return render_template('index.html', productos=productos, search=search)
 # ------------------------------
 # Agregar producto
