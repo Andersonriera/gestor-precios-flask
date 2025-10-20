@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestor de Precios</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #2b5797;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 24px;
+            letter-spacing: 1px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 30px auto;
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 15px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: white;
+            background-color: #2b5797;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background-color: #1d3f73;
+        }
+        .product-card {
+            background: #f9f9fb;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 5px solid #2b5797;
+        }
+        .product-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h2 {
+            margin: 0;
+            color: #2b5797;
+        }
+        p {
+            margin: 5px 0;
+            color: #555;
+        }
+        .precio-barato {
+            color: green;
+            font-weight: bold;
+        }
+        .actions {
+            margin-top: 10px;
+        }
+        .actions a {
+            text-decoration: none;
+            color: #2b5797;
+            margin-right: 10px;
+        }
+        .actions a:hover {
+            text-decoration: underline;
+        }
+        .no-data {
+            text-align: center;
+            color: #777;
+            margin-top: 30px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <header>📦 Gestor de Precios</header>
+
+    <div class="container">
+        <a href="/agregar" class="btn">➕ Agregar nuevo producto</a>
+
+        {% if productos|length > 0 %}
+            {% for producto in productos %}
+                <div class="product-card">
+                    <div class="product-header">
+                        <h2>{{ producto['nombre'] }}</h2>
+                        <small>ID: {{ producto['id'] }}</small>
+                    </div>
+
+                    <p><strong>Descripción:</strong> {{ producto['descripcion'] or "Sin descripción" }}</p>
+                    <p><strong>Precio por caja:</strong> S/ {{ "%.2f"|format(producto['precio_caja']) }}</p>
+                    <p><strong>Unidades por caja:</strong> {{ producto['unidades_por_caja'] }}</p>
+                    <p><strong>Precio unitario:</strong> S/ {{ "%.2f"|format(producto['precio_unitario']) }}</p>
+
+                    {% if producto['precio_minimo'] %}
+                        <p class="precio-barato">💰 Mejor precio: S/ {{ "%.2f"|format(producto['precio_minimo']) }} ({{ producto['proveedor_minimo'] }})</p>
+                    {% else %}
+                        <p class="precio-barato">Sin precios registrados</p>
+                    {% endif %}
+
+                    <div class="actions">
+                        <a href="/editar/{{ producto['id'] }}">✏️ Editar</a>
+                        <a href="/precio/{{ producto['id'] }}">🏷️ Agregar precio</a>
+                        <a href="/eliminar/{{ producto['id'] }}" onclick="return confirm('¿Seguro que deseas eliminar este producto?')">🗑️ Eliminar</a>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p class="no-data">Aún no hay productos registrados.</p>
+        {% endif %}
+    </div>
+
+</body>
+</html>
