@@ -38,14 +38,20 @@ with conectar() as con:
 # ------------------------------
 # Página principal
 # ------------------------------
-@app.route('/')
+@app.route('/', methods=['GET'])
 def index():
+    search = request.args.get('search', '')  # <-- captura lo que el usuario escribe
     conn = sqlite3.connect('productos.db')
     conn.row_factory = sqlite3.Row
-    productos = conn.execute('SELECT * FROM productos').fetchall()
-    conn.close()
 
-    return render_template('index.html', productos=productos)
+    if search:
+        query = "SELECT * FROM productos WHERE nombre LIKE ? OR descripcion LIKE ?"
+        productos = conn.execute(query, (f'%{search}%', f'%{search}%')).fetchall()
+    else:
+        productos = conn.execute('SELECT * FROM productos').fetchall()
+
+    conn.close()
+    return render_template('index.html', productos=productos, search=search)
 # ------------------------------
 # Agregar producto
 # ------------------------------

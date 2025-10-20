@@ -85,6 +85,18 @@
 <body>
 
     <header>📦 Gestor de Precios</header>
+<form method="get" action="/" class="mb-4">
+  <input 
+    type="text" 
+    name="search" 
+    placeholder="Buscar producto..." 
+    value="{{ search }}" 
+    style="padding: 8px; width: 60%; border-radius: 8px; border: 1px solid #ccc;"
+  >
+  <button type="submit" style="padding: 8px 16px; border: none; border-radius: 8px; background-color: #007BFF; color: white;">
+    Buscar
+  </button>
+</form>
 
     <div class="container">
         <a href="/agregar" class="btn">➕ Agregar nuevo producto</a>
