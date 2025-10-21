@@ -1,20 +1,19 @@
 from flask import Flask, render_template, request, redirect
 import psycopg2
+import sqlite3
 from urllib.parse import urlparse
 import os
 from datetime import datetime
-import sqlite3
 
 app = Flask(__name__)
 
 # ------------------------------
-# 🔹 Conexión y compatibilidad entre PostgreSQL y SQLite
+# 🔹 Conexión universal
 # ------------------------------
 def conectar():
     db_url = os.environ.get("DATABASE_URL")
 
-    # 🔹 Si Render proporciona DATABASE_URL → usar PostgreSQL
-    if db_url:
+    if db_url:  # Render (PostgreSQL)
         result = urlparse(db_url)
         conn = psycopg2.connect(
             database=result.path[1:],
@@ -23,70 +22,85 @@ def conectar():
             host=result.hostname,
             port=result.port
         )
-        return conn  # PostgreSQL
-
-    # 🔹 Si estás localmente → usar SQLite
-    else:
+        conn.tipo = "postgres"
+        return conn
+    else:  # Local (SQLite)
         conn = sqlite3.connect("productos.db")
-        return conn  # SQLite
+        conn.tipo = "sqlite"
+        return conn
 
 
 # ------------------------------
-# 🔹 Crear tablas automáticamente
+# 🔹 Ejecutar SQL compatible (%s vs ?)
+# ------------------------------
+def ejecutar_sql(conn, query, params=()):
+    cur = conn.cursor()
+    if conn.tipo == "sqlite":
+        query = query.replace("%s", "?")
+    cur.execute(query, params)
+    return cur
+
+
+# ------------------------------
+# 🔹 Crear tablas
 # ------------------------------
 def crear_tablas():
     try:
-        with conectar() as conn:
-            cur = conn.cursor()
-            if getattr(conn, "is_postgres", False):
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS productos (
-                        id SERIAL PRIMARY KEY,
-                        nombre TEXT,
-                        descripcion TEXT,
-                        precio_caja REAL,
-                        unidades_por_caja INTEGER,
-                        precio_unitario REAL
-                    )
-                """)
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS precios (
-                        id SERIAL PRIMARY KEY,
-                        producto_id INTEGER REFERENCES productos(id),
-                        proveedor TEXT,
-                        precio REAL,
-                        fecha TIMESTAMP
-                    )
-                """)
-            else:
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS productos (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        nombre TEXT,
-                        descripcion TEXT,
-                        precio_caja REAL,
-                        unidades_por_caja INTEGER,
-                        precio_unitario REAL
-                    )
-                """)
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS precios (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        producto_id INTEGER,
-                        proveedor TEXT,
-                        precio REAL,
-                        fecha TEXT,
-                        FOREIGN KEY (producto_id) REFERENCES productos(id)
-                    )
-                """)
-            conn.commit()
-            cur.close()
-            print("✅ Tablas verificadas o creadas correctamente.")
+        conn = conectar()
+        cur = conn.cursor()
+
+        if conn.tipo == "postgres":
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS productos (
+                    id SERIAL PRIMARY KEY,
+                    nombre TEXT,
+                    descripcion TEXT,
+                    precio_caja REAL,
+                    unidades_por_caja INTEGER,
+                    precio_unitario REAL
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS precios (
+                    id SERIAL PRIMARY KEY,
+                    producto_id INTEGER REFERENCES productos(id),
+                    proveedor TEXT,
+                    precio REAL,
+                    fecha TIMESTAMP
+                )
+            """)
+        else:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS productos (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nombre TEXT,
+                    descripcion TEXT,
+                    precio_caja REAL,
+                    unidades_por_caja INTEGER,
+                    precio_unitario REAL
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS precios (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    producto_id INTEGER,
+                    proveedor TEXT,
+                    precio REAL,
+                    fecha TEXT,
+                    FOREIGN KEY (producto_id) REFERENCES productos(id)
+                )
+            """)
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("✅ Tablas creadas/verificadas correctamente.")
     except Exception as e:
         print("❌ Error al crear tablas:", e)
 
 
 crear_tablas()
+
 
 # ------------------------------
 # 🔹 Página principal (index)
@@ -122,8 +136,8 @@ def index():
     productos = [dict(zip(columnas, fila)) for fila in productos]
 
     conn.close()
-
     return render_template('index.html', productos=productos, search=search)
+
 
 # ------------------------------
 # 🔹 Agregar producto
@@ -150,7 +164,7 @@ def agregar():
 
 
 # ------------------------------
-# 🔹 Detalle del producto (precios de proveedores)
+# 🔹 Detalle del producto
 # ------------------------------
 @app.route('/detalle/<int:producto_id>', methods=['GET', 'POST'])
 def detalle(producto_id):
@@ -184,7 +198,6 @@ def detalle(producto_id):
     precio_minimo = min(precios, key=lambda x: x['precio']) if precios else None
 
     conn.close()
-
     return render_template('detalle.html', producto=producto, precios=precios, precio_minimo=precio_minimo)
 
 
@@ -239,5 +252,3 @@ def eliminar(producto_id):
 # ------------------------------
 if __name__ == '__main__':
     app.run(debug=True)
-
-
