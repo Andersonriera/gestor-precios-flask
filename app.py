@@ -11,6 +11,7 @@ app = Flask(__name__)
 # 🔹 Conexión universal
 # ------------------------------
 def conectar():
+    """Detecta si usa PostgreSQL (Render) o SQLite (local)."""
     db_url = os.environ.get("DATABASE_URL")
 
     # Si Render proporciona DATABASE_URL → usar PostgreSQL
@@ -23,23 +24,25 @@ def conectar():
             host=result.hostname,
             port=result.port
         )
-        conn.is_postgres = True  # marcar tipo de conexión
+        conn.db_engine = "postgres"
         return conn
 
     # Si estás localmente → usar SQLite
     else:
         conn = sqlite3.connect("productos.db", check_same_thread=False)
         conn.row_factory = sqlite3.Row
-        # ⚠️ No intentar asignar atributos personalizados (SQLite no lo permite)
+        conn.db_engine = "sqlite"
         return conn
 
-# ------------------------------
-# 🔹 Ejecutar SQL compatible (%s vs ?)
-# ------------------------------
+
 def ejecutar_sql(conn, query, params=()):
+    """Ejecuta una consulta SQL compatible con PostgreSQL y SQLite."""
     cur = conn.cursor()
-    if conn.tipo == "sqlite":
+
+    # Convertir el formato de parámetros según el motor
+    if conn.db_engine == "sqlite":
         query = query.replace("%s", "?")
+
     cur.execute(query, params)
     return cur
 
