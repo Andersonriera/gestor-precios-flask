@@ -3,31 +3,32 @@ import psycopg2
 from urllib.parse import urlparse
 import os
 from datetime import datetime
+import sqlite3
 
 app = Flask(__name__)
 
-# ------------------------------
-# Conexión con PostgreSQL
-# ------------------------------
+# --------------------------------
+# 🔹 Conexión automática (PostgreSQL en Render / SQLite local)
+# --------------------------------
 def conectar():
     db_url = os.environ.get("DATABASE_URL")
-    if not db_url:
-        db_url = "postgresql://gestor_precios_db_user:moZxkQ8zyq7LeCHhFVchHmkJoK73FFzq@dpg-d3remkmmcj7s73cienkg-a/gestor_precios_db"
 
-    result = urlparse(db_url)
-    conn = psycopg2.connect(
-        database=result.path[1:],
-        user=result.username,
-        password=result.password,
-        host=result.hostname,
-        port=result.port
-    )
-    return conn
+    if db_url:  # Render → PostgreSQL
+        result = urlparse(db_url)
+        conn = psycopg2.connect(
+            database=result.path[1:],
+            user=result.username,
+            password=result.password,
+            host=result.hostname,
+            port=result.port
+        )
+        return conn
+    else:  # Local → SQLite
+        return sqlite3.connect("productos.db")
 
-
-# ------------------------------
-# Crear tablas automáticamente
-# ------------------------------
+# --------------------------------
+# 🔹 Crear tablas automáticamente
+# --------------------------------
 def crear_tablas():
     try:
         with conectar() as conn:
@@ -53,15 +54,15 @@ def crear_tablas():
             """)
             conn.commit()
             cur.close()
-            print("✅ Tablas verificadas o creadas correctamente.")
+            print("✅ Tablas creadas o verificadas correctamente.")
     except Exception as e:
-        print(" Error al crear tablas:", e)
+        print("⚠️ Error al crear tablas:", e)
 
 crear_tablas()
 
-# ------------------------------
-# Página principal
-# ------------------------------
+# --------------------------------
+# 🏠 Página principal
+# --------------------------------
 @app.route('/')
 def index():
     search = request.args.get('search', '')
@@ -71,48 +72,16 @@ def index():
 
     if search:
         cur.execute("""
-            SELECT 
-                p.id,
-                p.nombre,
-                p.descripcion,
-                p.precio_caja,
-                p.unidades_por_caja,
-                p.precio_unitario,
-                MIN(pr.precio) AS precio_minimo,
-                (
-                    SELECT proveedor 
-                    FROM precios pr2 
-                    WHERE pr2.producto_id = p.id 
-                    ORDER BY pr2.precio ASC 
-                    LIMIT 1
-                ) AS proveedor_minimo
-            FROM productos p
-            LEFT JOIN precios pr ON p.id = pr.producto_id
-            WHERE p.nombre ILIKE %s OR p.descripcion ILIKE %s
-            GROUP BY p.id
-            ORDER BY p.nombre ASC
+            SELECT id, nombre, descripcion, unidades_por_caja
+            FROM productos
+            WHERE nombre ILIKE %s OR descripcion ILIKE %s
+            ORDER BY nombre ASC
         """, (f"%{search}%", f"%{search}%"))
     else:
         cur.execute("""
-            SELECT 
-                p.id,
-                p.nombre,
-                p.descripcion,
-                p.precio_caja,
-                p.unidades_por_caja,
-                p.precio_unitario,
-                MIN(pr.precio) AS precio_minimo,
-                (
-                    SELECT proveedor 
-                    FROM precios pr2 
-                    WHERE pr2.producto_id = p.id 
-                    ORDER BY pr2.precio ASC 
-                    LIMIT 1
-                ) AS proveedor_minimo
-            FROM productos p
-            LEFT JOIN precios pr ON p.id = pr.producto_id
-            GROUP BY p.id
-            ORDER BY p.nombre ASC
+            SELECT id, nombre, descripcion, unidades_por_caja
+            FROM productos
+            ORDER BY nombre ASC
         """)
 
     productos = cur.fetchall()
@@ -124,9 +93,9 @@ def index():
 
     return render_template('index.html', productos=productos, search=search)
 
-# ------------------------------
-# Agregar producto
-# ------------------------------
+# --------------------------------
+# ➕ Agregar producto
+# --------------------------------
 @app.route('/agregar', methods=['GET', 'POST'])
 def agregar():
     if request.method == 'POST':
@@ -148,48 +117,58 @@ def agregar():
         return redirect('/')
     return render_template('agregar.html')
 
-
-# ------------------------------
-# Página de precios
-# ------------------------------
-@app.route('/precio/<int:producto_id>', methods=['GET', 'POST'])
-def precio(producto_id):
+# --------------------------------
+# 🔍 Detalle del producto (ver precios y proveedor más barato)
+# --------------------------------
+@app.route('/detalle/<int:producto_id>', methods=['GET', 'POST'])
+def detalle(producto_id):
     conn = conectar()
     cur = conn.cursor()
 
+    # Detectar si usamos SQLite o PostgreSQL
+    is_sqlite = "sqlite" in str(type(conn)).lower()
+    placeholder = "?" if is_sqlite else "%s"
+
+    # Obtener producto
+    cur.execute(f"SELECT * FROM productos WHERE id = {placeholder}", (producto_id,))
+    producto = cur.fetchone()
+
+    if not producto:
+        conn.close()
+        return "Producto no encontrado", 404
+
+    columnas = [desc[0] for desc in cur.description]
+    producto = dict(zip(columnas, producto))
+
+    # Agregar nuevo precio si se envía formulario
     if request.method == 'POST':
         proveedor = request.form['proveedor']
         precio_valor = float(request.form['precio'])
         fecha = datetime.now()
-        cur.execute("""
-            INSERT INTO precios (producto_id, proveedor, precio, fecha)
-            VALUES (%s, %s, %s, %s)
-        """, (producto_id, proveedor, precio_valor, fecha))
+
+        cur.execute(
+            f"INSERT INTO precios (producto_id, proveedor, precio, fecha) VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder})",
+            (producto_id, proveedor, precio_valor, fecha)
+        )
         conn.commit()
 
-    cur.execute("SELECT * FROM productos WHERE id = %s", (producto_id,))
-    producto = cur.fetchone()
-    columnas = [desc[0] for desc in cur.description]
-    producto = dict(zip(columnas, producto)) if producto else None
-
-    cur.execute("""
-        SELECT * FROM precios WHERE producto_id = %s ORDER BY fecha DESC
-    """, (producto_id,))
+    # Consultar precios existentes
+    cur.execute(
+        f"SELECT proveedor, precio, fecha FROM precios WHERE producto_id = {placeholder} ORDER BY precio ASC",
+        (producto_id,)
+    )
     precios = cur.fetchall()
     columnas = [desc[0] for desc in cur.description]
     precios = [dict(zip(columnas, fila)) for fila in precios]
 
     precio_minimo = min(precios, key=lambda x: x['precio']) if precios else None
 
-    cur.close()
     conn.close()
 
-    return render_template('precios.html', producto=producto, precios=precios, precio_minimo=precio_minimo)
-
-
-# ------------------------------
-# Editar producto
-# ------------------------------
+    return render_template('detalle.html', producto=producto, precios=precios, precio_minimo=precio_minimo)
+# --------------------------------
+# ✏️ Editar producto
+# --------------------------------
 @app.route('/editar/<int:producto_id>', methods=['GET', 'POST'])
 def editar(producto_id):
     conn = conectar()
@@ -221,10 +200,9 @@ def editar(producto_id):
     conn.close()
     return render_template('editar.html', producto=producto)
 
-
-# ------------------------------
-# Eliminar producto
-# ------------------------------
+# --------------------------------
+# 🗑️ Eliminar producto
+# --------------------------------
 @app.route('/eliminar/<int:producto_id>')
 def eliminar(producto_id):
     conn = conectar()
@@ -236,9 +214,8 @@ def eliminar(producto_id):
     conn.close()
     return redirect('/')
 
-
-# ------------------------------
-# Iniciar servidor
-# ------------------------------
+# --------------------------------
+# 🚀 Iniciar servidor
+# --------------------------------
 if __name__ == '__main__':
     app.run(debug=True)
