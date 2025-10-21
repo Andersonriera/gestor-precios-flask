@@ -7,9 +7,9 @@ import sqlite3
 
 app = Flask(__name__)
 
-# --------------------------------
-# 🔹 Conexión automática (PostgreSQL en Render / SQLite local)
-# --------------------------------
+# ------------------------------
+# 🔹 Conexión y compatibilidad entre PostgreSQL y SQLite
+# ------------------------------
 def conectar():
     db_url = os.environ.get("DATABASE_URL")
 
@@ -22,80 +22,121 @@ def conectar():
             host=result.hostname,
             port=result.port
         )
+        conn.is_postgres = True
         return conn
     else:  # Local → SQLite
-        return sqlite3.connect("productos.db")
+        conn = sqlite3.connect("productos.db")
+        conn.is_postgres = False
+        return conn
 
-# --------------------------------
+
+def ejecutar_sql(conn, query, params=()):
+    """Ejecuta SQL compatible entre PostgreSQL (%s) y SQLite (?)"""
+    cur = conn.cursor()
+    if getattr(conn, "is_postgres", False):
+        cur.execute(query, params)
+    else:
+        cur.execute(query.replace("%s", "?"), params)
+    return cur
+
+
+# ------------------------------
 # 🔹 Crear tablas automáticamente
-# --------------------------------
+# ------------------------------
 def crear_tablas():
     try:
         with conectar() as conn:
             cur = conn.cursor()
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS productos (
-                    id SERIAL PRIMARY KEY,
-                    nombre TEXT,
-                    descripcion TEXT,
-                    precio_caja REAL,
-                    unidades_por_caja INTEGER,
-                    precio_unitario REAL
-                )
-            """)
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS precios (
-                    id SERIAL PRIMARY KEY,
-                    producto_id INTEGER REFERENCES productos(id),
-                    proveedor TEXT,
-                    precio REAL,
-                    fecha TIMESTAMP
-                )
-            """)
+            if getattr(conn, "is_postgres", False):
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS productos (
+                        id SERIAL PRIMARY KEY,
+                        nombre TEXT,
+                        descripcion TEXT,
+                        precio_caja REAL,
+                        unidades_por_caja INTEGER,
+                        precio_unitario REAL
+                    )
+                """)
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS precios (
+                        id SERIAL PRIMARY KEY,
+                        producto_id INTEGER REFERENCES productos(id),
+                        proveedor TEXT,
+                        precio REAL,
+                        fecha TIMESTAMP
+                    )
+                """)
+            else:
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS productos (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        nombre TEXT,
+                        descripcion TEXT,
+                        precio_caja REAL,
+                        unidades_por_caja INTEGER,
+                        precio_unitario REAL
+                    )
+                """)
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS precios (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        producto_id INTEGER,
+                        proveedor TEXT,
+                        precio REAL,
+                        fecha TEXT,
+                        FOREIGN KEY (producto_id) REFERENCES productos(id)
+                    )
+                """)
             conn.commit()
             cur.close()
-            print("✅ Tablas creadas o verificadas correctamente.")
+            print("✅ Tablas verificadas o creadas correctamente.")
     except Exception as e:
-        print("⚠️ Error al crear tablas:", e)
+        print("❌ Error al crear tablas:", e)
+
 
 crear_tablas()
 
-# --------------------------------
-# 🏠 Página principal
-# --------------------------------
+# ------------------------------
+# 🔹 Página principal (index)
+# ------------------------------
 @app.route('/')
 def index():
     search = request.args.get('search', '')
 
     conn = conectar()
-    cur = conn.cursor()
-
-    if search:
-        cur.execute("""
-            SELECT id, nombre, descripcion, unidades_por_caja
-            FROM productos
-            WHERE nombre ILIKE %s OR descripcion ILIKE %s
-            ORDER BY nombre ASC
-        """, (f"%{search}%", f"%{search}%"))
-    else:
-        cur.execute("""
-            SELECT id, nombre, descripcion, unidades_por_caja
-            FROM productos
-            ORDER BY nombre ASC
-        """)
+    cur = ejecutar_sql(conn, """
+        SELECT 
+            p.id,
+            p.nombre,
+            p.descripcion,
+            p.unidades_por_caja,
+            MIN(pr.precio) AS precio_minimo,
+            (
+                SELECT proveedor 
+                FROM precios pr2 
+                WHERE pr2.producto_id = p.id 
+                ORDER BY pr2.precio ASC 
+                LIMIT 1
+            ) AS proveedor_minimo
+        FROM productos p
+        LEFT JOIN precios pr ON p.id = pr.producto_id
+        WHERE p.nombre LIKE %s OR p.descripcion LIKE %s
+        GROUP BY p.id
+        ORDER BY p.nombre ASC
+    """, (f"%{search}%", f"%{search}%"))
 
     productos = cur.fetchall()
     columnas = [desc[0] for desc in cur.description]
     productos = [dict(zip(columnas, fila)) for fila in productos]
 
-    cur.close()
     conn.close()
 
     return render_template('index.html', productos=productos, search=search)
 
-# --------------------------------
-# ➕ Agregar producto
-# --------------------------------
+# ------------------------------
+# 🔹 Agregar producto
+# ------------------------------
 @app.route('/agregar', methods=['GET', 'POST'])
 def agregar():
     if request.method == 'POST':
@@ -106,57 +147,45 @@ def agregar():
         precio_unitario = precio_caja / unidades_por_caja
 
         conn = conectar()
-        cur = conn.cursor()
-        cur.execute("""
+        ejecutar_sql(conn, """
             INSERT INTO productos (nombre, descripcion, precio_caja, unidades_por_caja, precio_unitario)
             VALUES (%s, %s, %s, %s, %s)
         """, (nombre, descripcion, precio_caja, unidades_por_caja, precio_unitario))
         conn.commit()
-        cur.close()
         conn.close()
+
         return redirect('/')
     return render_template('agregar.html')
 
-# --------------------------------
-# 🔍 Detalle del producto (ver precios y proveedor más barato)
-# --------------------------------
+
+# ------------------------------
+# 🔹 Detalle del producto (precios de proveedores)
+# ------------------------------
 @app.route('/detalle/<int:producto_id>', methods=['GET', 'POST'])
 def detalle(producto_id):
     conn = conectar()
-    cur = conn.cursor()
 
-    # Detectar si usamos SQLite o PostgreSQL
-    is_sqlite = "sqlite" in str(type(conn)).lower()
-    placeholder = "?" if is_sqlite else "%s"
-
-    # Obtener producto
-    cur.execute(f"SELECT * FROM productos WHERE id = {placeholder}", (producto_id,))
-    producto = cur.fetchone()
-
-    if not producto:
-        conn.close()
-        return "Producto no encontrado", 404
-
-    columnas = [desc[0] for desc in cur.description]
-    producto = dict(zip(columnas, producto))
-
-    # Agregar nuevo precio si se envía formulario
     if request.method == 'POST':
         proveedor = request.form['proveedor']
         precio_valor = float(request.form['precio'])
-        fecha = datetime.now()
-
-        cur.execute(
-            f"INSERT INTO precios (producto_id, proveedor, precio, fecha) VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder})",
-            (producto_id, proveedor, precio_valor, fecha)
-        )
+        fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ejecutar_sql(conn, """
+            INSERT INTO precios (producto_id, proveedor, precio, fecha)
+            VALUES (%s, %s, %s, %s)
+        """, (producto_id, proveedor, precio_valor, fecha))
         conn.commit()
 
-    # Consultar precios existentes
-    cur.execute(
-        f"SELECT proveedor, precio, fecha FROM precios WHERE producto_id = {placeholder} ORDER BY precio ASC",
-        (producto_id,)
-    )
+    cur = ejecutar_sql(conn, "SELECT * FROM productos WHERE id = %s", (producto_id,))
+    producto = cur.fetchone()
+    columnas = [desc[0] for desc in cur.description]
+    producto = dict(zip(columnas, producto)) if producto else None
+
+    cur = ejecutar_sql(conn, """
+        SELECT proveedor, precio, fecha
+        FROM precios
+        WHERE producto_id = %s
+        ORDER BY precio ASC
+    """, (producto_id,))
     precios = cur.fetchall()
     columnas = [desc[0] for desc in cur.description]
     precios = [dict(zip(columnas, fila)) for fila in precios]
@@ -166,13 +195,14 @@ def detalle(producto_id):
     conn.close()
 
     return render_template('detalle.html', producto=producto, precios=precios, precio_minimo=precio_minimo)
-# --------------------------------
-# ✏️ Editar producto
-# --------------------------------
+
+
+# ------------------------------
+# 🔹 Editar producto
+# ------------------------------
 @app.route('/editar/<int:producto_id>', methods=['GET', 'POST'])
 def editar(producto_id):
     conn = conectar()
-    cur = conn.cursor()
 
     if request.method == 'POST':
         nombre = request.form['nombre']
@@ -181,41 +211,42 @@ def editar(producto_id):
         unidades_por_caja = int(request.form['unidades_por_caja'])
         precio_unitario = precio_caja / unidades_por_caja
 
-        cur.execute("""
+        ejecutar_sql(conn, """
             UPDATE productos
             SET nombre=%s, descripcion=%s, precio_caja=%s, unidades_por_caja=%s, precio_unitario=%s
             WHERE id=%s
         """, (nombre, descripcion, precio_caja, unidades_por_caja, precio_unitario, producto_id))
         conn.commit()
-        cur.close()
         conn.close()
+
         return redirect('/')
 
-    cur.execute("SELECT * FROM productos WHERE id = %s", (producto_id,))
+    cur = ejecutar_sql(conn, "SELECT * FROM productos WHERE id = %s", (producto_id,))
     producto = cur.fetchone()
     columnas = [desc[0] for desc in cur.description]
     producto = dict(zip(columnas, producto)) if producto else None
 
-    cur.close()
     conn.close()
     return render_template('editar.html', producto=producto)
 
-# --------------------------------
-# 🗑️ Eliminar producto
-# --------------------------------
+
+# ------------------------------
+# 🔹 Eliminar producto
+# ------------------------------
 @app.route('/eliminar/<int:producto_id>')
 def eliminar(producto_id):
     conn = conectar()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM precios WHERE producto_id = %s", (producto_id,))
-    cur.execute("DELETE FROM productos WHERE id = %s", (producto_id,))
+    ejecutar_sql(conn, "DELETE FROM precios WHERE producto_id = %s", (producto_id,))
+    ejecutar_sql(conn, "DELETE FROM productos WHERE id = %s", (producto_id,))
     conn.commit()
-    cur.close()
     conn.close()
     return redirect('/')
 
-# --------------------------------
-# 🚀 Iniciar servidor
-# --------------------------------
+
+# ------------------------------
+# 🔹 Iniciar servidor
+# ------------------------------
 if __name__ == '__main__':
     app.run(debug=True)
+
+
