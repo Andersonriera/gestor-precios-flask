@@ -2,82 +2,95 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Agregar precio de proveedor</title>
+    <title>Agregar Precio - Gestor de Precios</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #f7f8fa;
-            margin: 40px;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 0;
         }
-        .container {
-            background-color: #fff;
-            border-radius: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            padding: 25px;
-            max-width: 450px;
-            margin: auto;
-        }
-        h1 {
-            color: #2b5797;
-            text-align: center;
-        }
-        h2 {
-            text-align: center;
-            font-size: 18px;
-            color: #555;
-            margin-bottom: 20px;
-        }
-        label {
-            font-weight: bold;
-            display: block;
-            margin-top: 10px;
-        }
-        input {
-            width: 100%;
-            padding: 8px;
-            margin-top: 5px;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-        }
-        button {
-            margin-top: 15px;
-            width: 100%;
-            padding: 10px;
+        header {
             background-color: #2b5797;
             color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 24px;
+            letter-spacing: 1px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #2b5797;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #333;
+        }
+        input[type="text"],
+        input[type="number"] {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            margin-top: 5px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px;
             border: none;
             border-radius: 8px;
-            cursor: pointer;
+            background-color: #2b5797;
+            color: white;
             font-size: 16px;
+            cursor: pointer;
         }
         button:hover {
             background-color: #1d3f73;
         }
-        a {
+        .back-link {
             display: block;
             text-align: center;
             margin-top: 15px;
             text-decoration: none;
             color: #2b5797;
         }
+        .back-link:hover {
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
+
+    <header>🏷️ Agregar Precio</header>
+
     <div class="container">
-        <h1>🏷️ Agregar precio</h1>
-        <h2>Producto: <span style="color:#1d3f73">{{ producto.nombre }}</span></h2>
+        <h2>Nuevo precio para: <span style="color:#555;">{{ producto['nombre'] }}</span></h2>
 
         <form method="post">
-            <label>Proveedor:</label>
-            <input type="text" name="proveedor" required>
+            <label for="proveedor">Proveedor:</label>
+            <input type="text" id="proveedor" name="proveedor" required>
 
-            <label>Precio (S/):</label>
-            <input type="number" step="0.01" name="precio" required>
+            <label for="precio">Precio (S/):</label>
+            <input type="number" id="precio" name="precio" step="0.01" required>
 
-            <button type="submit">💾 Guardar precio</button>
+            <button type="submit">💾 Guardar Precio</button>
         </form>
 
-        <a href="/">⬅️ Volver</a>
+        <a href="/" class="back-link">⬅️ Volver al inicio</a>
     </div>
+
 </body>
 </html>
