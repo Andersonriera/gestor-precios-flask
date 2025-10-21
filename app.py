@@ -24,29 +24,28 @@ def conectar():
             host=result.hostname,
             port=result.port
         )
-        conn.db_engine = "postgres"
-        return conn
+        return conn  # PostgreSQL
 
     # Si estás localmente → usar SQLite
     else:
         conn = sqlite3.connect("productos.db", check_same_thread=False)
         conn.row_factory = sqlite3.Row
-        conn.db_engine = "sqlite"
-        return conn
+        return conn  # SQLite
 
 
 def ejecutar_sql(conn, query, params=()):
-    """Ejecuta una consulta SQL compatible con PostgreSQL y SQLite."""
+    """Ejecuta SQL compatible con PostgreSQL y SQLite sin usar atributos."""
     cur = conn.cursor()
 
-    # Convertir el formato de parámetros según el motor
-    if conn.db_engine == "sqlite":
+    # Detectar automáticamente si es SQLite
+    is_sqlite = isinstance(conn, sqlite3.Connection)
+
+    # Cambiar %s por ? si es SQLite
+    if is_sqlite:
         query = query.replace("%s", "?")
 
     cur.execute(query, params)
     return cur
-
-
 # ------------------------------
 # 🔹 Crear tablas
 # ------------------------------
