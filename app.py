@@ -28,7 +28,7 @@ try:
         cur.close()
         print("✅ Tablas verificadas o creadas correctamente.")
 except Exception as e:
-    print(⚠️ Error al crear tablas:", e)
+    print("⚠️ Error al crear tablas:", e)
 
 from urllib.parse import urlparse
 
