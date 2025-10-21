@@ -13,7 +13,8 @@ app = Flask(__name__)
 def conectar():
     db_url = os.environ.get("DATABASE_URL")
 
-    if db_url:  # Render (PostgreSQL)
+    # Si Render proporciona DATABASE_URL → usar PostgreSQL
+    if db_url:
         result = urlparse(db_url)
         conn = psycopg2.connect(
             database=result.path[1:],
@@ -22,13 +23,15 @@ def conectar():
             host=result.hostname,
             port=result.port
         )
-        conn.tipo = "postgres"
-        return conn
-    else:  # Local (SQLite)
-        conn = sqlite3.connect("productos.db")
-        conn.tipo = "sqlite"
+        conn.is_postgres = True  # marcar tipo de conexión
         return conn
 
+    # Si estás localmente → usar SQLite
+    else:
+        conn = sqlite3.connect("productos.db", check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        # ⚠️ No intentar asignar atributos personalizados (SQLite no lo permite)
+        return conn
 
 # ------------------------------
 # 🔹 Ejecutar SQL compatible (%s vs ?)
