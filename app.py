@@ -65,27 +65,54 @@ crear_tablas()
 @app.route('/')
 def index():
     search = request.args.get('search', '')
+
     conn = conectar()
     cur = conn.cursor()
 
     if search:
         cur.execute("""
-            SELECT p.*, 
-                   MIN(pr.precio) AS precio_minimo, 
-                   (SELECT proveedor FROM precios pr2 WHERE pr2.producto_id = p.id ORDER BY pr2.precio ASC LIMIT 1)
+            SELECT 
+                p.id,
+                p.nombre,
+                p.descripcion,
+                p.precio_caja,
+                p.unidades_por_caja,
+                p.precio_unitario,
+                MIN(pr.precio) AS precio_minimo,
+                (
+                    SELECT proveedor 
+                    FROM precios pr2 
+                    WHERE pr2.producto_id = p.id 
+                    ORDER BY pr2.precio ASC 
+                    LIMIT 1
+                ) AS proveedor_minimo
             FROM productos p
             LEFT JOIN precios pr ON p.id = pr.producto_id
             WHERE p.nombre ILIKE %s OR p.descripcion ILIKE %s
             GROUP BY p.id
+            ORDER BY p.nombre ASC
         """, (f"%{search}%", f"%{search}%"))
     else:
         cur.execute("""
-            SELECT p.*, 
-                   MIN(pr.precio) AS precio_minimo, 
-                   (SELECT proveedor FROM precios pr2 WHERE pr2.producto_id = p.id ORDER BY pr2.precio ASC LIMIT 1)
+            SELECT 
+                p.id,
+                p.nombre,
+                p.descripcion,
+                p.precio_caja,
+                p.unidades_por_caja,
+                p.precio_unitario,
+                MIN(pr.precio) AS precio_minimo,
+                (
+                    SELECT proveedor 
+                    FROM precios pr2 
+                    WHERE pr2.producto_id = p.id 
+                    ORDER BY pr2.precio ASC 
+                    LIMIT 1
+                ) AS proveedor_minimo
             FROM productos p
             LEFT JOIN precios pr ON p.id = pr.producto_id
             GROUP BY p.id
+            ORDER BY p.nombre ASC
         """)
 
     productos = cur.fetchall()
@@ -94,8 +121,8 @@ def index():
 
     cur.close()
     conn.close()
-    return render_template('index.html', productos=productos, search=search)
 
+    return render_template('index.html', productos=productos, search=search)
 
 # ------------------------------
 # Agregar producto
