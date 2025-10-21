@@ -1,16 +1,52 @@
 from flask import Flask, render_template, request, redirect
-import sqlite3
+import psycopg2
+import os
+# Crear tablas automáticamente en PostgreSQL si no existen
+try:
+    with conectar() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS productos (
+            id SERIAL PRIMARY KEY,
+            nombre TEXT,
+            descripcion TEXT,
+            precio_caja REAL,
+            unidades_por_caja INTEGER,
+            precio_unitario REAL
+        )
+        """)
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS precios (
+            id SERIAL PRIMARY KEY,
+            producto_id INTEGER REFERENCES productos(id),
+            proveedor TEXT,
+            precio REAL,
+            fecha TIMESTAMP
+        )
+        """)
+        conn.commit()
+        cur.close()
+        print("✅ Tablas verificadas o creadas correctamente.")
+except Exception as e:
+    print(⚠️ Error al crear tablas:", e)
 
-app = Flask(__name__)
+from urllib.parse import urlparse
 
-# ------------------------------
-# Función para conectar a la base
-# ------------------------------
 def conectar():
-    conexion = sqlite3.connect('productos.db')
-    conexion.row_factory = sqlite3.Row
-    return conexion
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        # ⚠️ Pega tu URL de Render aquí (solo localmente, Render la usará como variable)
+        db_url = "postgresql://gestor_precios_db_user:moZxkQ8zyq7LeCHhFVchHmkJoK73FFzq@dpg-d3remkmmcj7s73cienkg-a/gestor_precios_db"
 
+    result = urlparse(db_url)
+    conn = psycopg2.connect(
+        database=result.path[1:],
+        user=result.username,
+        password=result.password,
+        host=result.hostname,
+        port=result.port
+    )
+    return conn
 # ------------------------------
 # Crear tablas si no existen
 # ------------------------------
@@ -95,23 +131,40 @@ def agregar():
 # ------------------------------
 @app.route('/precio/<int:producto_id>', methods=['GET', 'POST'])
 def precio(producto_id):
+    from datetime import datetime
     con = conectar()
     producto = con.execute("SELECT * FROM productos WHERE id = ?", (producto_id,)).fetchone()
 
     if request.method == 'POST':
         proveedor = request.form['proveedor']
-        precio = float(request.form['precio'])
-        con.execute("INSERT INTO precios (producto_id, proveedor, precio) VALUES (?, ?, ?)", (producto_id, proveedor, precio))
+        precio_valor = request.form['precio']
+        fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        con.execute(
+            'INSERT INTO precios (producto_id, proveedor, precio, fecha) VALUES (?, ?, ?, ?)',
+            (producto_id, proveedor, precio_valor, fecha)
+        )
         con.commit()
 
-    # Ordenar los precios de menor a mayor
+        return redirect(f'/precio/{producto_id}')
+
+    # 🔹 Consultar todos los precios del producto
     precios = con.execute(
-        "SELECT * FROM precios WHERE producto_id = ? ORDER BY precio ASC",
+        'SELECT * FROM precios WHERE producto_id = ? ORDER BY fecha DESC',
         (producto_id,)
     ).fetchall()
 
+    # 🔹 Calcular el precio más barato
+    precio_minimo = None
+    if precios:
+        precio_minimo = min(precios, key=lambda x: x['precio'])
+
     con.close()
-    return render_template('precios.html', producto=producto, precios=precios)
+
+    # 🔹 Enviar todo a la plantilla HTML
+    return render_template('precios.html', producto=producto, precios=precios, precio_minimo=precio_minimo)
+
+
 
 # ------------------------------
 # Editar producto
@@ -152,6 +205,30 @@ def eliminar(producto_id):
     con.commit()
     con.close()
     return redirect('/')
+@app.route('/precio/<int:producto_id>', methods=['GET', 'POST'])
+def agregar_precio(producto_id):
+    conn = sqlite3.connect('productos.db')
+    conn.row_factory = sqlite3.Row
+
+    if request.method == 'POST':
+        proveedor = request.form['proveedor']
+        precio = request.form['precio']
+
+        conn.execute(
+            'INSERT INTO precios (producto_id, proveedor, precio, fecha) VALUES (?, ?, ?, DATE("now"))',
+            (producto_id, proveedor, precio)
+        )
+        conn.commit()
+
+    producto = conn.execute('SELECT * FROM productos WHERE id = ?', (producto_id,)).fetchone()
+    precios = conn.execute(
+        'SELECT proveedor, precio, fecha FROM precios WHERE producto_id = ? ORDER BY fecha DESC',
+        (producto_id,)
+    ).fetchall()
+
+    conn.close()
+    return render_template('precios.html', producto=producto, precios=precios)
+
 
 # ------------------------------
 # Iniciar servidor

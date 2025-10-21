@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestor de Precios</title>
     <style>
         body {
@@ -80,7 +81,41 @@
             margin-top: 30px;
             font-style: italic;
         }
+/* --- Diseño responsive para móviles --- */
+@media (max-width: 600px) {
+    header {
+        font-size: 18px;
+        padding: 15px;
+    }
+    .container {
+        width: 90%;
+        padding: 15px;
+        margin: 15px auto;
+    }
+    h2 {
+        font-size: 18px;
+    }
+    .btn {
+        display: block;
+        width: 100%;
+        text-align: center;
+        margin-top: 8px;
+    }
+    .product-card {
+        padding: 10px;
+    }
+    input[type="text"],
+    input[type="number"],
+    button {
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 10px;
+    }
+}
+
+
     </style>
+
 </head>
 <body>
 
