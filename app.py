@@ -61,17 +61,24 @@ def ejecutar_sql(conn, sql, params=None, fetch=False):
 # ==============================
 def crear_tablas():
     conn = conectar()
-    sql = """
-    CREATE TABLE IF NOT EXISTS productos (
-        id SERIAL PRIMARY KEY,
-        nombre TEXT NOT NULL,
-        precio REAL NOT NULL,
-        tienda TEXT
-    );
-    """
-    ejecutar_sql(conn, sql)
+    cur = conn.cursor()
+
+    # 🔥 Elimina la tabla si ya existe
+    cur.execute("DROP TABLE IF EXISTS productos")
+
+    # Crea la tabla con la nueva estructura
+    cur.execute("""
+        CREATE TABLE productos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            descripcion TEXT,
+            precio_caja REAL NOT NULL,
+            unidades_por_caja INTEGER NOT NULL,
+            precio_unitario REAL NOT NULL
+        )
+    """)
+    conn.commit()
     conn.close()
-    print("✅ Tablas creadas o verificadas correctamente")
 
 
 # ==============================
