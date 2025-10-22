@@ -1,74 +1,93 @@
-import os
-import sqlite3
+from flask import Flask, render_template, request, redirect
 import psycopg2
-from flask import Flask, render_template, request, redirect, url_for
+from urllib.parse import urlparse
+import sqlite3
+import os
+from datetime import datetime
 
 app = Flask(__name__)
 
-# ==============================
-# 🔌 CONEXIÓN A BASE DE DATOS
-# ==============================
+# ------------------------------
+# 🔹 Conexión a base de datos (SQLite local / PostgreSQL en Render)
+# ------------------------------
 def conectar():
-    database_url = os.environ.get("DATABASE_URL")
-
-    if database_url:
-        # Render usa PostgreSQL
-        conn = psycopg2.connect(database_url)
-        print("✅ Conectado a PostgreSQL en Render")
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url:
+        result = urlparse(db_url)
+        conn = psycopg2.connect(
+            database=result.path[1:],
+            user=result.username,
+            password=result.password,
+            host=result.hostname,
+            port=result.port
+        )
     else:
-        # Local usa SQLite
-        conn = sqlite3.connect("precios.db")
-        print("✅ Conectado a SQLite localmente")
+        conn = sqlite3.connect("productos.db")
     return conn
 
 
-# ==============================
-# ⚙️ EJECUTAR CONSULTAS SQL
-# ==============================
-def ejecutar_sql(conn, query, params=None, fetch=False):
-    conn.row_factory = sqlite3.Row  # 👈 esto hace que los resultados sean como diccionarios
+# ------------------------------
+# 🔹 Función universal para ejecutar SQL
+# ------------------------------
+def ejecutar_sql(conn, query, params=(), fetch=False):
     cur = conn.cursor()
+    driver = conn.__class__.__module__
 
-    if params:
-        cur.execute(query, params)
-    else:
-        cur.execute(query)
+    # Si es SQLite, reemplazar %s por ?
+    if "sqlite3" in driver:
+        query = query.replace("%s", "?")
 
+    cur.execute(query, params)
+
+    data = None
     if fetch:
-        rows = cur.fetchall()
-        cur.close()
-        return [dict(row) for row in rows]  # 👈 convierte cada fila en un diccionario
-    else:
-        conn.commit()
-        cur.close()
-# ==============================
-# 🏗️ CREAR TABLAS SI NO EXISTEN
-# ==============================
+        data = cur.fetchall()
+        columnas = [desc[0] for desc in cur.description] if cur.description else []
+        data = [dict(zip(columnas, fila)) for fila in data]
+
+    cur.close()
+    return data
+
+
+# ------------------------------
+# 🔹 Crear tablas automáticamente
+# ------------------------------
 def crear_tablas():
     conn = conectar()
     cur = conn.cursor()
 
-    # 🔥 Elimina la tabla si ya existe
-    cur.execute("DROP TABLE IF EXISTS productos")
-
-    # Crea la tabla con la nueva estructura
     cur.execute("""
-        CREATE TABLE productos (
+        CREATE TABLE IF NOT EXISTS productos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nombre TEXT NOT NULL,
+            nombre TEXT,
             descripcion TEXT,
-            precio_caja REAL NOT NULL,
-            unidades_por_caja INTEGER NOT NULL,
-            precio_unitario REAL NOT NULL
+            precio_caja REAL,
+            unidades_por_caja INTEGER,
+            precio_unitario REAL
         )
     """)
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS precios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            producto_id INTEGER,
+            proveedor TEXT,
+            precio REAL,
+            fecha TEXT,
+            FOREIGN KEY (producto_id) REFERENCES productos(id)
+        )
+    """)
+
     conn.commit()
     conn.close()
 
+# Llamar a la función apenas inicia la app
+crear_tablas()
 
-# ==============================
-# 🏠 RUTA PRINCIPAL
-# ==============================
+
+# ------------------------------
+# 🔹 Página principal
+# ------------------------------
 @app.route("/")
 def index():
     conn = conectar()
@@ -77,16 +96,16 @@ def index():
     return render_template("index.html", productos=productos)
 
 
-# ==============================
-# ➕ AÑADIR PRODUCTO
-# ==============================
-@app.route('/agregar', methods=['GET', 'POST'])
+# ------------------------------
+# 🔹 Agregar producto
+# ------------------------------
+@app.route("/agregar", methods=["GET", "POST"])
 def agregar():
-    if request.method == 'POST':
-        nombre = request.form.get('nombre')
-        descripcion = request.form.get('descripcion')
-        precio_caja = request.form.get('precio_caja', type=float)
-        unidades_por_caja = request.form.get('unidades_por_caja', type=int)
+    if request.method == "POST":
+        nombre = request.form.get("nombre")
+        descripcion = request.form.get("descripcion")
+        precio_caja = request.form.get("precio_caja", type=float)
+        unidades_por_caja = request.form.get("unidades_por_caja", type=int)
 
         if not nombre or not precio_caja or not unidades_por_caja:
             return "Faltan campos obligatorios", 400
@@ -94,95 +113,89 @@ def agregar():
         precio_unitario = precio_caja / unidades_por_caja
 
         conn = conectar()
-        cur = conn.cursor()
-
-        # Detectar si estamos usando SQLite o PostgreSQL
-        try:
-            cur.execute("""
-                INSERT INTO productos (nombre, descripcion, precio_caja, unidades_por_caja, precio_unitario)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (nombre, descripcion, precio_caja, unidades_por_caja, precio_unitario))
-        except Exception:
-            cur.execute("""
-                INSERT INTO productos (nombre, descripcion, precio_caja, 	unidades_por_caja, precio_unitario)
-                VALUES (?, ?, ?, ?, ?)
-            """, (nombre, descripcion, precio_caja, unidades_por_caja, precio_unitario))
-
+        ejecutar_sql(conn, """
+            INSERT INTO productos (nombre, descripcion, precio_caja, unidades_por_caja, precio_unitario)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (nombre, descripcion, precio_caja, unidades_por_caja, precio_unitario))
         conn.commit()
         conn.close()
+        return redirect("/")
 
-        return redirect('/')
-    
-    # Renderizar el formulario
-    return render_template('agregar.html')
-# ==============================
-# 🗑️ ELIMINAR PRODUCTO
-# ==============================
-@app.route('/editar/<int:id>', methods=['GET', 'POST'])
+    return render_template("agregar.html")
+
+
+# ------------------------------
+# 🔹 Detalle del producto
+# ------------------------------
+@app.route("/detalle/<int:producto_id>", methods=["GET", "POST"])
+def detalle(producto_id):
+    conn = conectar()
+
+    if request.method == "POST":
+        proveedor = request.form.get("proveedor")
+        precio = request.form.get("precio", type=float)
+        fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        ejecutar_sql(conn, """
+            INSERT INTO precios (producto_id, proveedor, precio, fecha)
+            VALUES (%s, %s, %s, %s)
+        """, (producto_id, proveedor, precio, fecha))
+        conn.commit()
+
+    producto = ejecutar_sql(conn, "SELECT * FROM productos WHERE id = %s", (producto_id,), fetch=True)
+    precios = ejecutar_sql(conn, "SELECT * FROM precios WHERE producto_id = %s ORDER BY precio ASC", (producto_id,), fetch=True)
+    conn.close()
+
+    producto = producto[0] if producto else None
+    precio_minimo = min(precios, key=lambda x: x["precio"]) if precios else None
+
+    return render_template("detalle.html", producto=producto, precios=precios, precio_minimo=precio_minimo)
+
+
+# ------------------------------
+# 🔹 Editar producto
+# ------------------------------
+@app.route("/editar/<int:id>", methods=["GET", "POST"])
 def editar(id):
     conn = conectar()
-    cur = conn.cursor()
 
-    if request.method == 'POST':
-        nombre = request.form.get('nombre')
-        descripcion = request.form.get('descripcion')
-        precio_caja = float(request.form.get('precio_caja'))
-        unidades_por_caja = int(request.form.get('unidades_por_caja'))
+    if request.method == "POST":
+        nombre = request.form.get("nombre")
+        descripcion = request.form.get("descripcion")
+        precio_caja = request.form.get("precio_caja", type=float)
+        unidades_por_caja = request.form.get("unidades_por_caja", type=int)
         precio_unitario = precio_caja / unidades_por_caja
 
-        cur.execute("""
-            UPDATE productos
-            SET nombre = ?, descripcion = ?, precio_caja = ?, unidades_por_caja = ?, precio_unitario = ?
-            WHERE id = ?
+        ejecutar_sql(conn, """
+            UPDATE productos SET nombre=%s, descripcion=%s, precio_caja=%s, unidades_por_caja=%s, precio_unitario=%s
+            WHERE id=%s
         """, (nombre, descripcion, precio_caja, unidades_por_caja, precio_unitario, id))
         conn.commit()
         conn.close()
-        return redirect(f'/detalle/{id}')
+        return redirect("/")
 
-    cur.execute("SELECT * FROM productos WHERE id = ?", (id,))
-    producto = cur.fetchone()
+    producto = ejecutar_sql(conn, "SELECT * FROM productos WHERE id = %s", (id,), fetch=True)
     conn.close()
+    producto = producto[0] if producto else None
 
-    if not producto:
-        return "Producto no encontrado", 404
+    return render_template("editar.html", producto=producto)
 
-    columnas = ["id", "nombre", "descripcion", "precio_caja", "unidades_por_caja", "precio_unitario"]
-    producto_dict = dict(zip(columnas, producto))
 
-    return render_template('editar.html', producto=producto_dict)
-
+# ------------------------------
+# 🔹 Eliminar producto
+# ------------------------------
 @app.route("/eliminar/<int:id>")
 def eliminar(id):
     conn = conectar()
+    ejecutar_sql(conn, "DELETE FROM precios WHERE producto_id = %s", (id,))
     ejecutar_sql(conn, "DELETE FROM productos WHERE id = %s", (id,))
+    conn.commit()
     conn.close()
-    return redirect(url_for("index"))
+    return redirect("/")
 
 
-@app.route('/detalle/<int:id>')
-def detalle(id):
-    conn = conectar()
-    cur = conn.cursor()
-
-    # 🔹 Obtener información del producto
-    cur.execute("SELECT * FROM productos WHERE id = ?", (id,))
-    producto = cur.fetchone()
-    conn.close()
-
-    if not producto:
-        return "Producto no encontrado", 404
-
-    columnas = ["id", "nombre", "descripcion", "precio_caja", "unidades_por_caja", "precio_unitario"]
-    producto_dict = dict(zip(columnas, producto))
-
-    return render_template('detalle.html', producto=producto_dict)
-
-
-
-# ==============================
-# 🚀 INICIO DE LA APLICACIÓN
-# ==============================
+# ------------------------------
+# 🔹 Iniciar servidor
+# ------------------------------
 if __name__ == "__main__":
-    crear_tablas()
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
