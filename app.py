@@ -25,37 +25,22 @@ def conectar():
 # ==============================
 # ⚙️ EJECUTAR CONSULTAS SQL
 # ==============================
-def ejecutar_sql(conn, sql, params=None, fetch=False):
-    try:
-        cur = conn.cursor()
+def ejecutar_sql(conn, query, params=None, fetch=False):
+    conn.row_factory = sqlite3.Row  # 👈 esto hace que los resultados sean como diccionarios
+    cur = conn.cursor()
 
-        # Determinar si es SQLite o PostgreSQL
-        if isinstance(conn, sqlite3.Connection):
-            placeholder = "?"
-        else:
-            placeholder = "%s"
+    if params:
+        cur.execute(query, params)
+    else:
+        cur.execute(query)
 
-        # Reemplazar placeholders si es necesario
-        if params and placeholder == "?":
-            sql = sql.replace("%s", "?")
-
-        cur.execute(sql, params or [])
-
-        if fetch:
-            resultado = cur.fetchall()
-        else:
-            resultado = None
-
+    if fetch:
+        rows = cur.fetchall()
+        cur.close()
+        return [dict(row) for row in rows]  # 👈 convierte cada fila en un diccionario
+    else:
         conn.commit()
         cur.close()
-        return resultado
-
-    except Exception as e:
-        print(f"❌ Error al ejecutar SQL: {e}")
-        conn.rollback()
-        return None
-
-
 # ==============================
 # 🏗️ CREAR TABLAS SI NO EXISTEN
 # ==============================
