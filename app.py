@@ -126,6 +126,25 @@ def eliminar(id):
     return redirect(url_for("index"))
 
 
+@app.route('/detalle/<int:id>')
+def detalle(id):
+    conn = conectar()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM productos WHERE id = ?", (id,))
+    producto = cur.fetchone()
+    conn.close()
+
+    if not producto:
+        return "Producto no encontrado", 404
+
+    # Convertir el resultado en un diccionario para usarlo fácilmente en el HTML
+    columnas = ["id", "nombre", "descripcion", "precio_caja", "unidades_por_caja", "precio_unitario"]
+    producto_dict = dict(zip(columnas, producto))
+
+    return render_template('detalle.html', producto=producto_dict)
+
+
+
 # ==============================
 # 🚀 INICIO DE LA APLICACIÓN
 # ==============================
