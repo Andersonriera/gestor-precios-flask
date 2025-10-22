@@ -104,7 +104,7 @@ def agregar():
             """, (nombre, descripcion, precio_caja, unidades_por_caja, precio_unitario))
         except Exception:
             cur.execute("""
-                INSERT INTO productos (nombre, descripcion, precio_caja, unidades_por_caja, precio_unitario)
+                INSERT INTO productos (nombre, descripcion, precio_caja, 	unidades_por_caja, precio_unitario)
                 VALUES (?, ?, ?, ?, ?)
             """, (nombre, descripcion, precio_caja, unidades_por_caja, precio_unitario))
 
@@ -118,6 +118,39 @@ def agregar():
 # ==============================
 # 🗑️ ELIMINAR PRODUCTO
 # ==============================
+@app.route('/editar/<int:id>', methods=['GET', 'POST'])
+def editar(id):
+    conn = conectar()
+    cur = conn.cursor()
+
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        descripcion = request.form.get('descripcion')
+        precio_caja = float(request.form.get('precio_caja'))
+        unidades_por_caja = int(request.form.get('unidades_por_caja'))
+        precio_unitario = precio_caja / unidades_por_caja
+
+        cur.execute("""
+            UPDATE productos
+            SET nombre = ?, descripcion = ?, precio_caja = ?, unidades_por_caja = ?, precio_unitario = ?
+            WHERE id = ?
+        """, (nombre, descripcion, precio_caja, unidades_por_caja, precio_unitario, id))
+        conn.commit()
+        conn.close()
+        return redirect(f'/detalle/{id}')
+
+    cur.execute("SELECT * FROM productos WHERE id = ?", (id,))
+    producto = cur.fetchone()
+    conn.close()
+
+    if not producto:
+        return "Producto no encontrado", 404
+
+    columnas = ["id", "nombre", "descripcion", "precio_caja", "unidades_por_caja", "precio_unitario"]
+    producto_dict = dict(zip(columnas, producto))
+
+    return render_template('editar.html', producto=producto_dict)
+
 @app.route("/eliminar/<int:id>")
 def eliminar(id):
     conn = conectar()
@@ -130,6 +163,8 @@ def eliminar(id):
 def detalle(id):
     conn = conectar()
     cur = conn.cursor()
+
+    # 🔹 Obtener información del producto
     cur.execute("SELECT * FROM productos WHERE id = ?", (id,))
     producto = cur.fetchone()
     conn.close()
@@ -137,7 +172,6 @@ def detalle(id):
     if not producto:
         return "Producto no encontrado", 404
 
-    # Convertir el resultado en un diccionario para usarlo fácilmente en el HTML
     columnas = ["id", "nombre", "descripcion", "precio_caja", "unidades_por_caja", "precio_unitario"]
     producto_dict = dict(zip(columnas, producto))
 
