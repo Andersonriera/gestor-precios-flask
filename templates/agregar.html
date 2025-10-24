@@ -14,22 +14,25 @@
 </head>
 <body>
 <div class="container">
+{% if mensaje %}
+    <div style="background-color: #ffdddd; color: #a33; border: 1px solid #a33; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+        {{ mensaje }}
+    </div>
+{% endif %}
+
     <h2>Agregar nuevo producto</h2>
-    <form method="POST">
-        <label>Nombre:</label>
-        <input type="text" name="nombre" required>
+<form method="POST" action="/agregar">
+    <label>Nombre del producto:</label><br>
+    <input type="text" name="nombre" required><br><br>
 
-        <label>Descripción:</label>
-        <textarea name="descripcion"></textarea>
+    <label>Descripción:</label><br>
+    <textarea name="descripcion" rows="3"></textarea><br><br>
 
-        <label>Precio por caja:</label>
-        <input type="number" step="0.01" name="precio_caja" required>
+    <label>Unidades por caja:</label><br>
+    <input type="number" name="unidades_por_caja" min="1" required><br><br>
 
-        <label>Unidades por caja:</label>
-        <input type="number" name="unidades_por_caja" required>
-
-        <button type="submit">Guardar</button>
-    </form>
+    <button type="submit">Guardar</button>
+</form>
     <br>
     <a href="/">⬅ Volver</a>
 </div>

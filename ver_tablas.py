@@ -1,13 +1,16 @@
 import sqlite3
 
-conn = sqlite3.connect('productos.db')
-cursor = conn.cursor()
+conn = sqlite3.connect("productos.db")
+cur = conn.cursor()
 
-cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-tablas = cursor.fetchall()
-
+# Mostrar todas las tablas
 print("Tablas en la base de datos:")
-for t in tablas:
-    print("-", t[0])
+for row in cur.execute("SELECT name FROM sqlite_master WHERE type='table';"):
+    print("-", row[0])
+
+# Mostrar columnas de la tabla productos
+print("\nColumnas en la tabla 'productos':")
+for row in cur.execute("PRAGMA table_info(productos);"):
+    print(row)
 
 conn.close()

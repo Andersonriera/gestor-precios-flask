@@ -2,59 +2,114 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Detalle de Producto</title>
+    <title>Detalle del Producto</title>
     <style>
-        body { font-family: Arial; background: #f4f6f8; }
-        .container { max-width: 800px; margin: 40px auto; background: white; padding: 25px; border-radius: 10px; }
-        h2 { color: #2b5797; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-        th { background: #2b5797; color: white; }
-        a.btn { background: #2b5797; color: white; padding: 8px 12px; text-decoration: none; border-radius: 5px; }
-        a.btn:hover { background: #1a3c6e; }
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f8f9fa; }
+        h1 { color: #333; }
+        table { border-collapse: collapse; width: 80%; background: white; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        th { background-color: #007bff; color: white; }
+        a, button { text-decoration: none; color: white; background: #007bff; padding: 5px 10px; border-radius: 5px; border: none; cursor: pointer; }
+        a:hover, button:hover { background: #0056b3; }
+        form { margin-top: 20px; background: white; padding: 20px; border-radius: 10px; width: 60%; }
+        input, select { padding: 8px; width: 95%; margin-bottom: 10px; }
+        .delete { background: #dc3545; }
+        .delete:hover { background: #b02a37; }
+
+        /* 🔹 Estilo para mensajes flash */
+        .flash-message {
+            background-color: #e0f7e9;
+            border-left: 5px solid #28a745;
+            color: #155724;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            width: 60%;
+        }
+        .flash-error {
+            background-color: #f8d7da;
+            border-left: 5px solid #dc3545;
+            color: #721c24;
+        }
     </style>
 </head>
 <body>
-<div class="container">
+
+    <!-- 🔹 BLOQUE PARA MOSTRAR MENSAJES FLASH -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash-message {% if category == 'error' %}flash-error{% endif %}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <h1>Detalle del Producto</h1>
     <h2>{{ producto['nombre'] }}</h2>
     <p><strong>Descripción:</strong> {{ producto['descripcion'] }}</p>
-    <p><strong>Precio Caja:</strong> {{ producto['precio_caja'] }}</p>
     <p><strong>Unidades por caja:</strong> {{ producto['unidades_por_caja'] }}</p>
-    <p><strong>Precio unitario:</strong> {{ "%.2f"|format(producto['precio_unitario']) }}</p>
+{% if precio_minimo %}
+    <div style="background-color:#d4edda; padding:10px; border-radius:8px; width:60%; margin-top:15px;">
+        <h3 style="color:#155724; margin:0;">⭐ Mejor precio actual</h3>
+        <p style="margin:5px 0;"><strong>Proveedor:</strong> {{ precio_minimo['proveedor'] }}</p>
+        <p style="margin:5px 0;"><strong>Precio:</strong> ${{ "%.2f"|format(precio_minimo['precio']) }}</p>
+        <p style="margin:5px 0;"><strong>Fecha:</strong> {{ precio_minimo['fecha'] }}</p>
+    </div>
+{% endif %}
 
-    <a href="/editar/{{ producto['id'] }}" class="btn">✏️ Editar</a>
-    <a href="/eliminar/{{ producto['id'] }}" class="btn" style="background:#c0392b;">🗑 Eliminar</a>
-    <a href="/" class="btn">⬅ Volver</a>
 
-    <hr>
-    <h3>Historial de precios</h3>
+    <h3>Precios de proveedores</h3>
 
+    {% if precios %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Proveedor</th>
+                    <th>Precio</th>
+                    <th>Fecha</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+               {% for p in precios %}
+<tr {% if precio_minimo and p['id'] == precio_minimo['id'] %}style="background-color:#d4edda;"{% endif %}>
+    <td>{{ p['proveedor'] }}</td>
+    <td>
+        ${{ "%.2f"|format(p['precio']) }}
+        {% if precio_minimo and p['id'] == precio_minimo['id'] %}
+            <strong>⭐ Mejor precio</strong>
+        {% endif %}
+    </td>
+    <td>{{ p['fecha'] }}</td>
+    <td>
+        <a href="/editar_precio/{{ p['id'] }}">Editar</a>
+        <a href="/eliminar_precio/{{ p['id'] }}" class="delete">Eliminar</a>
+    </td>
+</tr>
+{% endfor %}
+
+            </tbody>
+        </table>
+    {% else %}
+        <p>No hay precios registrados para este producto.</p>
+    {% endif %}
+
+    <h3>Agregar nuevo precio</h3>
     <form method="POST">
         <label>Proveedor:</label>
         <input type="text" name="proveedor" required>
+
         <label>Precio:</label>
-        <input type="number" step="0.01" name="precio" required>
-        <button type="submit">Agregar precio</button>
+        <input type="number" name="precio" step="0.01" required>
+
+        <button type="submit">Guardar precio</button>
     </form>
 
-    {% if precios %}
-    <table>
-        <tr>
-            <th>Proveedor</th>
-            <th>Precio</th>
-            <th>Fecha</th>
-        </tr>
-        {% for p in precios %}
-        <tr {% if precio_minimo and p['precio'] == precio_minimo['precio'] %}style="background:#d4edda;"{% endif %}>
-            <td>{{ p['proveedor'] }}</td>
-            <td>{{ "%.2f"|format(p['precio']) }}</td>
-            <td>{{ p['fecha'] }}</td>
-        </tr>
-        {% endfor %}
-    </table>
-    {% else %}
-        <p>No hay precios registrados.</p>
-    {% endif %}
-</div>
+    <br>
+    <a href="/">← Volver a la lista de productos</a>
+
 </body>
 </html>

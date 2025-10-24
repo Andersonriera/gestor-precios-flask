@@ -2,37 +2,141 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestor de Precios</title>
     <style>
-        body { font-family: Arial; background: #f4f6f8; margin: 0; }
-        header { background: #2b5797; color: white; padding: 20px; text-align: center; }
-        .container { max-width: 900px; margin: 30px auto; background: white; padding: 20px; border-radius: 10px; }
-        a.btn { background: #2b5797; color: white; padding: 10px 15px; border-radius: 5px; text-decoration: none; }
-        a.btn:hover { background: #1a3c6e; }
-        .card { background: #f9f9fb; padding: 15px; margin: 10px 0; border-left: 5px solid #2b5797; border-radius: 8px; }
-        .card a { text-decoration: none; color: #2b5797; font-weight: bold; }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #2b5797;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 22px;
+            letter-spacing: 0.5px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 25px auto;
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 15px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: white;
+            background-color: #2b5797;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background-color: #1d3f73;
+        }
+        .product-card {
+            background: #f9f9fb;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 5px solid #2b5797;
+            transition: transform 0.1s ease-in-out;
+            position: relative;
+        }
+        .product-card:hover {
+            transform: scale(1.01);
+            background: #f0f4ff;
+        }
+        .delete-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 5px 8px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .delete-btn:hover {
+            background-color: #b02a37;
+        }
+        h2 {
+            margin: 0;
+            color: #2b5797;
+            font-size: 18px;
+        }
+        p {
+            margin: 5px 0;
+            color: #555;
+        }
+        .no-data {
+            text-align: center;
+            color: #777;
+            margin-top: 30px;
+            font-style: italic;
+        }
+        @media (max-width: 600px) {
+            header { font-size: 18px; padding: 15px; }
+            .container { width: 90%; padding: 15px; margin: 10px auto; }
+            h2 { font-size: 16px; }
+        }
     </style>
 </head>
 <body>
 
-<header>📦 Gestor de Precios</header>
+    <header>📦 Gestor de Precios</header>
 
-<div class="container">
-    <a href="/agregar" class="btn">➕ Agregar producto</a>
+    <div class="container">
+        <form method="get" action="/" style="margin-bottom: 20px;">
+            <input 
+                type="text" 
+                name="search" 
+                placeholder="🔍 Buscar producto..." 
+                value="{{ search }}" 
+                style="padding: 8px; width: 65%; border-radius: 8px; border: 1px solid #ccc;"
+            >
+            <button type="submit" 
+                style="padding: 8px 16px; border: none; border-radius: 8px; background-color: #007BFF; color: white;">
+                Buscar
+            </button>
+        </form>
 
-    {% if productos %}
-        {% for p in productos %}
-        <div class="card">
-            <a href="/detalle/{{ p['id'] }}">{{ p['nombre'] }}</a>
-            <p><strong>Precio Caja:</strong> {{ p['precio_caja'] }}</p>
-            <p><strong>Unidades por caja:</strong> {{ p['unidades_por_caja'] }}</p>
-            <p><strong>Precio unitario:</strong> {{ "%.2f"|format(p['precio_unitario']) }}</p>
-        </div>
-        {% endfor %}
-    {% else %}
-        <p style="text-align:center; color:gray;">No hay productos registrados.</p>
-    {% endif %}
-</div>
+        <a href="/agregar" class="btn">➕ Agregar nuevo producto</a>
+
+        {% if productos|length > 0 %}
+            {% for producto in productos %}
+                <div class="product-card">
+                    <button class="delete-btn" onclick="eliminarProducto('{{ producto['id'] }}')">🗑️</button>
+                    <a href="/detalle/{{ producto['id'] }}" style="text-decoration:none; color:inherit;">
+                        <h2>{{ producto['nombre'] }}</h2>
+                        <p><strong>Unidades por caja:</strong> {{ producto['unidades_por_caja'] }}</p>
+                        <p>{{ producto['descripcion'] or "Sin descripción" }}</p>
+                    </a>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p class="no-data">Aún no hay productos registrados.</p>
+        {% endif %}
+    </div>
+
+    <script>
+        function eliminarProducto(id) {
+            if (confirm("¿Estás seguro de que deseas eliminar este producto?")) {
+                fetch(`/eliminar_producto/${id}`, { method: "POST" })
+                    .then(res => {
+                        if (res.ok) location.reload();
+                    });
+            }
+        }
+    </script>
 
 </body>
 </html>
