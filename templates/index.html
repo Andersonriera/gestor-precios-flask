@@ -6,11 +6,12 @@
     <title>Gestor de Precios</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
             background-color: #f4f6f8;
             margin: 0;
             padding: 0;
         }
+
         header {
             background-color: #2b5797;
             color: white;
@@ -19,6 +20,7 @@
             font-size: 22px;
             letter-spacing: 0.5px;
         }
+
         .container {
             max-width: 900px;
             margin: 25px auto;
@@ -27,6 +29,7 @@
             padding: 25px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
+
         .btn {
             display: inline-block;
             padding: 10px 15px;
@@ -36,23 +39,60 @@
             background-color: #2b5797;
             margin: 5px 0;
             font-size: 14px;
+            transition: background 0.3s ease;
         }
+
         .btn:hover {
             background-color: #1d3f73;
         }
+
+        form {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        form input {
+            padding: 10px;
+            flex: 1;
+            min-width: 200px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+
+        form button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background-color: #007BFF;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        form button:hover {
+            background-color: #0056b3;
+        }
+
         .product-card {
             background: #f9f9fb;
             border-radius: 12px;
             padding: 15px;
             margin-bottom: 15px;
             border-left: 5px solid #2b5797;
-            transition: transform 0.1s ease-in-out;
+            transition: transform 0.15s ease-in-out, background 0.2s;
             position: relative;
         }
+
         .product-card:hover {
-            transform: scale(1.01);
-            background: #f0f4ff;
+            transform: scale(1.02);
+            background: #eef3ff;
         }
+
         .delete-btn {
             position: absolute;
             top: 10px;
@@ -63,30 +103,38 @@
             border-radius: 5px;
             padding: 5px 8px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 13px;
+            transition: background 0.3s ease;
         }
+
         .delete-btn:hover {
             background-color: #b02a37;
         }
+
         h2 {
             margin: 0;
             color: #2b5797;
             font-size: 18px;
         }
+
         p {
             margin: 5px 0;
             color: #555;
         }
+
         .no-data {
             text-align: center;
             color: #777;
             margin-top: 30px;
             font-style: italic;
         }
+
         @media (max-width: 600px) {
             header { font-size: 18px; padding: 15px; }
             .container { width: 90%; padding: 15px; margin: 10px auto; }
+            .btn { font-size: 13px; padding: 8px 12px; }
             h2 { font-size: 16px; }
+            .delete-btn { padding: 4px 6px; font-size: 12px; }
         }
     </style>
 </head>
@@ -95,18 +143,14 @@
     <header>📦 Gestor de Precios</header>
 
     <div class="container">
-        <form method="get" action="/" style="margin-bottom: 20px;">
+        <form method="get" action="/">
             <input 
                 type="text" 
                 name="search" 
                 placeholder="🔍 Buscar producto..." 
-                value="{{ search }}" 
-                style="padding: 8px; width: 65%; border-radius: 8px; border: 1px solid #ccc;"
+                value="{{ search }}"
             >
-            <button type="submit" 
-                style="padding: 8px 16px; border: none; border-radius: 8px; background-color: #007BFF; color: white;">
-                Buscar
-            </button>
+            <button type="submit">Buscar</button>
         </form>
 
         <a href="/agregar" class="btn">➕ Agregar nuevo producto</a>
@@ -133,7 +177,8 @@
                 fetch(`/eliminar_producto/${id}`, { method: "POST" })
                     .then(res => {
                         if (res.ok) location.reload();
-                    });
+                    })
+                    .catch(() => alert("Error al eliminar el producto"));
             }
         }
     </script>

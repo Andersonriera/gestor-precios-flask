@@ -21,6 +21,10 @@
 {% endif %}
 
     <h2>Agregar nuevo producto</h2>
+{% if mensaje %}
+    <p style="color: red; font-weight: bold;">{{ mensaje }}</p>
+{% endif %}
+
 <form method="POST" action="/agregar">
     <label>Nombre del producto:</label><br>
     <input type="text" name="nombre" required><br><br>

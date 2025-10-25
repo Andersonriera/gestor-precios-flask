@@ -2,66 +2,188 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Detalle del Producto</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ producto['nombre'] }} - Detalle</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; background: #f8f9fa; }
-        h1 { color: #333; }
-        table { border-collapse: collapse; width: 80%; background: white; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
-        th { background-color: #007bff; color: white; }
-        a, button { text-decoration: none; color: white; background: #007bff; padding: 5px 10px; border-radius: 5px; border: none; cursor: pointer; }
-        a:hover, button:hover { background: #0056b3; }
-        form { margin-top: 20px; background: white; padding: 20px; border-radius: 10px; width: 60%; }
-        input, select { padding: 8px; width: 95%; margin-bottom: 10px; }
-        .delete { background: #dc3545; }
-        .delete:hover { background: #b02a37; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f6f8;
+            color: #333;
+        }
 
-        /* 🔹 Estilo para mensajes flash */
-        .flash-message {
-            background-color: #e0f7e9;
-            border-left: 5px solid #28a745;
-            color: #155724;
+        /* 🔹 Barra superior fija */
+        header {
+            position: sticky;
+            top: 0;
+            background-color: #2b5797;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            font-size: 18px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+        }
+
+        header a {
+            color: white;
+            text-decoration: none;
+            font-size: 16px;
+            background: #1e3f73;
+            padding: 6px 12px;
+            border-radius: 6px;
+            transition: 0.2s;
+        }
+
+        header a:hover {
+            background: #163158;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 25px auto;
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #2b5797;
+            margin-bottom: 10px;
+        }
+
+        .info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #2b5797;
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f4f6f8;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 15px;
+            margin: 5px;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 14px;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn-delete {
+            background-color: #dc3545;
+        }
+        .btn-delete:hover {
+            background-color: #b02a37;
+        }
+
+        .btn-edit {
+            background-color: #007bff;
+        }
+        .btn-edit:hover {
+            background-color: #0056b3;
+        }
+
+        .form-section {
+            margin-top: 30px;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+
+        button[type="submit"] {
+            background-color: #28a745;
+            color: white;
+            border: none;
             padding: 10px 15px;
             border-radius: 8px;
-            margin-bottom: 20px;
-            font-weight: bold;
-            width: 60%;
+            cursor: pointer;
+            transition: 0.2s;
         }
-        .flash-error {
-            background-color: #f8d7da;
-            border-left: 5px solid #dc3545;
-            color: #721c24;
+
+        button[type="submit"]:hover {
+            background-color: #1e7e34;
+        }
+
+        .lowest {
+            background-color: #d4edda !important;
+            color: #155724;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            header {
+                flex-direction: column;
+                gap: 5px;
+                font-size: 16px;
+                text-align: center;
+            }
+
+            .container {
+                width: 92%;
+                padding: 15px;
+            }
+
+            table, th, td {
+                font-size: 13px;
+            }
+
+            button, .btn {
+                width: 100%;
+                margin: 6px 0;
+            }
         }
     </style>
 </head>
 <body>
 
-    <!-- 🔹 BLOQUE PARA MOSTRAR MENSAJES FLASH -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="flash-message {% if category == 'error' %}flash-error{% endif %}">
-            {{ message }}
-          </div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
+<header>
+    <span>📦 {{ producto['nombre'] }}</span>
+    <a href="/">← Volver al inicio</a>
+</header>
 
-    <h1>Detalle del Producto</h1>
-    <h2>{{ producto['nombre'] }}</h2>
-    <p><strong>Descripción:</strong> {{ producto['descripcion'] }}</p>
-    <p><strong>Unidades por caja:</strong> {{ producto['unidades_por_caja'] }}</p>
-{% if precio_minimo %}
-    <div style="background-color:#d4edda; padding:10px; border-radius:8px; width:60%; margin-top:15px;">
-        <h3 style="color:#155724; margin:0;">⭐ Mejor precio actual</h3>
-        <p style="margin:5px 0;"><strong>Proveedor:</strong> {{ precio_minimo['proveedor'] }}</p>
-        <p style="margin:5px 0;"><strong>Precio:</strong> ${{ "%.2f"|format(precio_minimo['precio']) }}</p>
-        <p style="margin:5px 0;"><strong>Fecha:</strong> {{ precio_minimo['fecha'] }}</p>
+<div class="container">
+    <div class="info">
+        <p><strong>Descripción:</strong> {{ producto['descripcion'] or "Sin descripción" }}</p>
+        <p><strong>Unidades por caja:</strong> {{ producto['unidades_por_caja'] }}</p>
     </div>
-{% endif %}
 
-
-    <h3>Precios de proveedores</h3>
+    <h3>Precios de Proveedores</h3>
 
     {% if precios %}
         <table>
@@ -74,42 +196,36 @@
                 </tr>
             </thead>
             <tbody>
-               {% for p in precios %}
-<tr {% if precio_minimo and p['id'] == precio_minimo['id'] %}style="background-color:#d4edda;"{% endif %}>
-    <td>{{ p['proveedor'] }}</td>
-    <td>
-        ${{ "%.2f"|format(p['precio']) }}
-        {% if precio_minimo and p['id'] == precio_minimo['id'] %}
-            <strong>⭐ Mejor precio</strong>
-        {% endif %}
-    </td>
-    <td>{{ p['fecha'] }}</td>
-    <td>
-        <a href="/editar_precio/{{ p['id'] }}">Editar</a>
-        <a href="/eliminar_precio/{{ p['id'] }}" class="delete">Eliminar</a>
-    </td>
-</tr>
-{% endfor %}
-
+                {% for p in precios %}
+                <tr class="{% if p['precio'] == menor_precio %}lowest{% endif %}">
+                    <td>{{ p['proveedor'] }}</td>
+                    <td>${{ "%.2f"|format(p['precio']) }}</td>
+                    <td>{{ p['fecha'] }}</td>
+                    <td>
+                        <a href="/editar_precio/{{ p['id'] }}" class="btn btn-edit">Editar</a>
+                        <a href="/eliminar_precio/{{ p['id'] }}" class="btn btn-delete">Eliminar</a>
+                    </td>
+                </tr>
+                {% endfor %}
             </tbody>
         </table>
     {% else %}
         <p>No hay precios registrados para este producto.</p>
     {% endif %}
 
-    <h3>Agregar nuevo precio</h3>
-    <form method="POST">
-        <label>Proveedor:</label>
-        <input type="text" name="proveedor" required>
+    <div class="form-section">
+        <h3>Agregar nuevo precio</h3>
+        <form method="POST">
+            <label>Proveedor:</label>
+            <input type="text" name="proveedor" required>
 
-        <label>Precio:</label>
-        <input type="number" name="precio" step="0.01" required>
+            <label>Precio:</label>
+            <input type="number" name="precio" step="0.01" required>
 
-        <button type="submit">Guardar precio</button>
-    </form>
-
-    <br>
-    <a href="/">← Volver a la lista de productos</a>
+            <button type="submit">Guardar precio</button>
+        </form>
+    </div>
+</div>
 
 </body>
 </html>

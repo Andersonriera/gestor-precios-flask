@@ -91,30 +91,34 @@ def eliminar_producto(id):
 # -----------------------------
 # 🔹 Agregar producto
 # -----------------------------
-@app.route("/agregar", methods=["GET", "POST"])
+@app.route('/agregar', methods=['GET', 'POST'])
 def agregar():
-    if request.method == "POST":
-        nombre = request.form.get("nombre")
-        descripcion = request.form.get("descripcion")
-        unidades_por_caja = request.form.get("unidades_por_caja", type=int)
+    mensaje = None  # Para mostrar mensajes de error o éxito
+
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        descripcion = request.form.get('descripcion')
+        unidades_por_caja = request.form.get('unidades_por_caja', type=int)
 
         if not nombre or not unidades_por_caja:
-            return "⚠️ Faltan campos obligatorios", 400
+            mensaje = "⚠️ Faltan campos obligatorios."
+        else:
+            try:
+                conn = conectar()
+                cur = conn.cursor()
+                cur.execute("""
+                    INSERT INTO productos (nombre, descripcion, unidades_por_caja, precio_caja, precio_unitario)
+                    VALUES (?, ?, ?, NULL, NULL)
+                """, (nombre, descripcion, unidades_por_caja))
+                conn.commit()
+                conn.close()
+                return redirect('/')
+            except sqlite3.IntegrityError:
+                mensaje = "⚠️ El producto ya existe. Intenta con otro nombre."
+            except Exception as e:
+                mensaje = f"❌ Error al agregar producto: {e}"
 
-        conn = conectar()
-        try:
-            ejecutar_sql(conn, """
-                INSERT INTO productos (nombre, descripcion, unidades_por_caja)
-                VALUES (?, ?, ?)
-            """, (nombre, descripcion, unidades_por_caja))
-        except sqlite3.IntegrityError:
-            conn.close()
-            return "❌ Ya existe un producto con ese nombre.", 400
-
-        conn.close()
-        return redirect(url_for("index"))
-    
-    return render_template("agregar.html")
+    return render_template('agregar.html', mensaje=mensaje)
 
 # -----------------------------
 # 🔹 Detalle del producto
