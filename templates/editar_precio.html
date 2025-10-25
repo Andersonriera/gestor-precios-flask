@@ -2,27 +2,104 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Editar Precio</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Precio - {{ producto['nombre'] }}</title>
     <style>
-        body { font-family: Arial; margin: 40px; background: #f7f9fb; }
-        form { background: white; padding: 25px; border-radius: 10px; width: 350px; }
-        input { width: 100%; padding: 8px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; }
-        button { padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; }
-        button:hover { background: #0056b3; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 50px auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 25px;
+        }
+
+        h2 {
+            text-align: center;
+            color: #2b5797;
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        button {
+            background-color: #2b5797;
+            color: white;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            width: 100%;
+            cursor: pointer;
+            font-size: 15px;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background-color: #1d3f73;
+        }
+
+        a {
+            display: block;
+            text-align: center;
+            margin-top: 15px;
+            color: #2b5797;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                width: 90%;
+                padding: 20px;
+            }
+
+            input, button {
+                font-size: 16px;
+            }
+        }
     </style>
 </head>
 <body>
 
-<h2>Editar Precio</h2>
+    <div class="container">
+        <h2>Editar precio - {{ producto['nombre'] }}</h2>
 
-<form method="POST">
-    <label>Nuevo precio:</label>
-    <input type="number" step="0.01" name="precio" value="{{ precio['precio'] }}" required>
-    <button type="submit">Guardar cambios</button>
-</form>
+        <form method="POST">
+            <label>Proveedor:</label>
+            <input type="text" name="proveedor" value="{{ precio['proveedor'] }}" required>
 
-<br>
-<a href="/" style="text-decoration:none; color:#007bff;">← Volver</a>
+            <label>Precio:</label>
+            <input type="number" name="precio" step="0.01" value="{{ precio['precio'] }}" required>
+
+            <button type="submit">💾 Guardar cambios</button>
+        </form>
+
+        <a href="/detalle/{{ producto['id'] }}">← Volver al detalle del producto</a>
+    </div>
 
 </body>
 </html>

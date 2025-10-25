@@ -159,36 +159,41 @@ def detalle(id):
 # -----------------------------
 # 🔹 Editar precio del proveedor
 # -----------------------------
-@app.route('/editar_precio/<int:id>', methods=['GET', 'POST'])
+@app.route("/editar_precio/<int:id>", methods=["GET", "POST"])
 def editar_precio(id):
     conn = conectar()
     cur = conn.cursor()
 
-    if request.method == 'POST':
-        nuevo_precio = request.form.get('precio', type=float)
+    # Obtener los datos del precio
+    cur.execute("SELECT * FROM precios WHERE id = ?", (id,))
+    precio = cur.fetchone()
 
-        # Buscar el producto al que pertenece este precio
-        cur.execute("SELECT producto_id FROM precios WHERE id = ?", (id,))
-        producto = cur.fetchone()
-        if not producto:
-            conn.close()
-            return "Precio no encontrado", 404
+    if not precio:
+        conn.close()
+        return "Precio no encontrado", 404
 
-        producto_id = producto['producto_id']
+    # Obtener el producto relacionado
+    cur.execute("SELECT * FROM productos WHERE id = ?", (precio['producto_id'],))
+    producto = cur.fetchone()
 
-        # Actualizar el precio
-        cur.execute("UPDATE precios SET precio = ? WHERE id = ?", (nuevo_precio, id))
+    if request.method == "POST":
+        nuevo_proveedor = request.form['proveedor']
+        nuevo_precio = request.form['precio']
+
+        cur.execute("""
+            UPDATE precios
+            SET proveedor = ?, precio = ?
+            WHERE id = ?
+        """, (nuevo_proveedor, nuevo_precio, id))
         conn.commit()
         conn.close()
 
-        # Redirigir al detalle del producto
-        return redirect(f'/detalle/{producto_id}')
+        # Redirigir de vuelta al detalle del producto
+        return redirect(f"/detalle/{precio['producto_id']}")
 
-    # GET → Mostrar el formulario
-    cur.execute("SELECT * FROM precios WHERE id = ?", (id,))
-    precio = cur.fetchone()
     conn.close()
-    return render_template('editar_precio.html', precio=precio)
+    return render_template("editar_precio.html", precio=precio, producto=producto)
+
 
 # -----------------------------
 # 🔹 Eliminar producto

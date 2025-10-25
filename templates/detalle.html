@@ -186,6 +186,7 @@
     <h3>Precios de Proveedores</h3>
 
     {% if precios %}
+        {% set min_precio = precios | map(attribute='precio') | map('float') | min %}
         <table>
             <thead>
                 <tr>
@@ -196,25 +197,24 @@
                 </tr>
             </thead>
             <tbody>
-    {% set min_precio = precios | min(attribute='precio') if precios else None %}
-    {% for p in precios %}
-    <tr {% if p['precio'] == min_precio %} style="background-color: #d4edda; font-weight: bold;" {% endif %}>
-        <td>{{ p['proveedor'] }}</td>
-        <td>
-            ${{ "%.2f"|format(p['precio']) }}
-            {% if p['precio'] == min_precio %}
-                💰 <span style="color: green;">Mejor precio</span>
-            {% endif %}
-        </td>
-        <td>{{ p['fecha'] }}</td>
-        <td>
-            <a href="/editar_precio/{{ p['id'] }}">Editar</a>
-            <a href="/eliminar_precio/{{ p['id'] }}" class="delete">Eliminar</a>
-        </td>
-    </tr>
-    {% endfor %}
-</tbody>
-
+                {% for p in precios %}
+                    {% set precio_float = p['precio'] | float %}
+                    <tr {% if precio_float == min_precio %} class="lowest" {% endif %}>
+                        <td>{{ p['proveedor'] }}</td>
+                        <td>
+                            ${{ "%.2f"|format(precio_float) }}
+                            {% if precio_float == min_precio %}
+                                💰 <span style="color: green;">Mejor precio</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ p['fecha'] }}</td>
+                        <td>
+                            <a href="/editar_precio/{{ p['id'] }}" class="btn btn-edit">Editar</a>
+                            <a href="/eliminar_precio/{{ p['id'] }}" class="btn btn-delete">Eliminar</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
         </table>
     {% else %}
         <p>No hay precios registrados para este producto.</p>
