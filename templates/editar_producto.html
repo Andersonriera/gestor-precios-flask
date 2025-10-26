@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar Producto</title>
+    <style>
+        body { font-family: Arial; background: #f4f6f8; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 50px auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        input, textarea { width: 100%; margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        button { background: #2b5797; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; width: 100%; font-size: 15px; }
+        button:hover { background: #1a3c6e; }
+        a { color: #2b5797; text-decoration: none; display: inline-block; margin-top: 10px; }
+        h2 { color: #2b5797; text-align: center; }
+        .alert {
+            background-color: #ffdddd;
+            color: #a33;
+            border: 1px solid #a33;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        @media (max-width: 600px) {
+            .container { width: 90%; margin: 20px auto; padding: 15px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    {% if mensaje %}
+    <div class="alert">{{ mensaje }}</div>
+    {% endif %}
+
+    <h2>Editar Producto</h2>
+
+    <form method="POST">
+        <label>Nombre del producto:</label><br>
+        <input type="text" name="nombre" value="{{ producto['nombre'] }}" required><br><br>
+
+        <label>Descripción:</label><br>
+        <textarea name="descripcion" rows="3">{{ producto['descripcion'] }}</textarea><br><br>
+
+        <label>Unidades por caja:</label><br>
+        <input type="number" name="unidades_por_caja" min="1" value="{{ producto['unidades_por_caja'] }}" required><br><br>
+
+        <button type="submit">💾 Guardar cambios</button>
+    </form>
+
+    <a href="/">⬅ Volver al inicio</a>
+</div>
+</body>
+</html>

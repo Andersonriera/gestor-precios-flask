@@ -8,18 +8,13 @@ app = Flask(__name__)
 # -----------------------------
 # 🔹 Conexión a la base de datos
 # -----------------------------
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "productos.db")
+
 def conectar():
-    conn = sqlite3.connect("productos.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
-
-def ejecutar_sql(conn, query, params=(), fetch=False):
-    cur = conn.cursor()
-    cur.execute(query, params)
-    if fetch:
-        return cur.fetchall()
-    conn.commit()
-    return None
 
 # -----------------------------
 # 🔹 Crear tablas automáticamente
@@ -60,41 +55,51 @@ crear_tablas()
 def index():
     search = request.args.get("search", "")
     conn = conectar()
-
-    if search:
-        productos = ejecutar_sql(conn, 
-            "SELECT * FROM productos WHERE nombre LIKE ? OR descripcion LIKE ? ORDER BY nombre ASC", 
-            (f"%{search}%", f"%{search}%"), 
-            fetch=True
-        )
-    else:
-        productos = ejecutar_sql(conn, "SELECT * FROM productos ORDER BY nombre ASC", fetch=True)
-
-    conn.close()
-    return render_template("index.html", productos=productos, search=search)
-
-@app.route("/eliminar_producto/<int:id>", methods=["POST"])
-def eliminar_producto(id):
-    conn = conectar()
     cur = conn.cursor()
 
-    # Primero eliminamos los precios asociados al producto (si los hay)
-    cur.execute("DELETE FROM precios WHERE producto_id = ?", (id,))
-    # Luego eliminamos el producto
-    cur.execute("DELETE FROM productos WHERE id = ?", (id,))
+    # Buscar productos
+    if search:
+        cur.execute("""
+            SELECT * FROM productos 
+            WHERE nombre LIKE ? OR descripcion LIKE ? 
+            ORDER BY nombre ASC
+        """, (f"%{search}%", f"%{search}%"))
+    else:
+        cur.execute("SELECT * FROM productos ORDER BY nombre ASC")
 
-    conn.commit()
+    productos = cur.fetchall()
+
+    # 🔹 Calcular el mejor precio y el precio unitario para cada producto
+    productos_con_precios = []
+    for p in productos:
+        cur.execute("""
+            SELECT MIN(precio) as mejor_precio
+            FROM precios
+            WHERE producto_id = ?
+        """, (p['id'],))
+        resultado = cur.fetchone()
+        mejor_precio = resultado['mejor_precio']
+
+        # Calcular precio unitario
+        precio_unitario = None
+        if mejor_precio and p['unidades_por_caja']:
+            precio_unitario = round(mejor_precio / p['unidades_por_caja'], 2)
+
+        productos_con_precios.append({
+            **dict(p),
+            "mejor_precio": mejor_precio,
+            "precio_unitario": precio_unitario
+        })
+
     conn.close()
-    return ("", 204)  # Respuesta vacía pero con código HTTP 204 (éxito sin contenido)
-
+    return render_template("index.html", productos=productos_con_precios, search=search)
 
 # -----------------------------
 # 🔹 Agregar producto
 # -----------------------------
 @app.route('/agregar', methods=['GET', 'POST'])
 def agregar():
-    mensaje = None  # Para mostrar mensajes de error o éxito
-
+    mensaje = None
     if request.method == 'POST':
         nombre = request.form.get('nombre')
         descripcion = request.form.get('descripcion')
@@ -107,8 +112,8 @@ def agregar():
                 conn = conectar()
                 cur = conn.cursor()
                 cur.execute("""
-                    INSERT INTO productos (nombre, descripcion, unidades_por_caja, precio_caja, precio_unitario)
-                    VALUES (?, ?, ?, NULL, NULL)
+                    INSERT INTO productos (nombre, descripcion, unidades_por_caja)
+                    VALUES (?, ?, ?)
                 """, (nombre, descripcion, unidades_por_caja))
                 conn.commit()
                 conn.close()
@@ -121,6 +126,47 @@ def agregar():
     return render_template('agregar.html', mensaje=mensaje)
 
 # -----------------------------
+# 🔹 Editar producto
+# -----------------------------
+@app.route('/editar_producto/<int:id>', methods=['GET', 'POST'])
+def editar_producto(id):
+    conn = conectar()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM productos WHERE id = ?", (id,))
+    producto = cur.fetchone()
+
+    if not producto:
+        conn.close()
+        return "Producto no encontrado", 404
+
+    mensaje = None
+    if request.method == 'POST':
+        nombre = request.form.get('nombre')
+        descripcion = request.form.get('descripcion')
+        unidades_por_caja = request.form.get('unidades_por_caja', type=int)
+
+        if not nombre or not unidades_por_caja:
+            mensaje = "⚠️ Todos los campos son obligatorios."
+        else:
+            try:
+                cur.execute("""
+                    UPDATE productos
+                    SET nombre = ?, descripcion = ?, unidades_por_caja = ?
+                    WHERE id = ?
+                """, (nombre, descripcion, unidades_por_caja, id))
+                conn.commit()
+                conn.close()
+                return redirect('/')
+            except sqlite3.IntegrityError:
+                mensaje = "⚠️ Ya existe un producto con ese nombre."
+            except Exception as e:
+                mensaje = f"❌ Error al actualizar: {e}"
+
+    conn.close()
+    return render_template('editar_producto.html', producto=producto, mensaje=mensaje)
+
+# -----------------------------
 # 🔹 Detalle del producto
 # -----------------------------
 @app.route('/detalle/<int:id>', methods=['GET', 'POST'])
@@ -128,58 +174,65 @@ def detalle(id):
     conn = conectar()
     cur = conn.cursor()
 
-    # Obtener el producto
     cur.execute("SELECT * FROM productos WHERE id = ?", (id,))
     producto = cur.fetchone()
+    if not producto:
+        conn.close()
+        return "Producto no encontrado", 404
 
-    # Manejar POST: agregar nuevo precio
+    # Agregar nuevo precio
     if request.method == 'POST':
         proveedor = request.form.get('proveedor')
         precio = request.form.get('precio', type=float)
-
         if proveedor and precio is not None:
             cur.execute("""
                 INSERT INTO precios (producto_id, proveedor, precio, fecha)
-                VALUES (?, ?, ?, DATE('now'))
-            """, (id, proveedor, precio))
+                VALUES (?, ?, ?, ?)
+            """, (id, proveedor, precio, datetime.now().strftime("%Y-%m-%d")))
             conn.commit()
 
-    # Obtener precios asociados al producto
+    # Obtener precios
     cur.execute("SELECT * FROM precios WHERE producto_id = ? ORDER BY precio ASC", (id,))
     precios = cur.fetchall()
 
-    # Encontrar el precio mínimo (si hay)
+    # Calcular precio mínimo y unitario
     precio_minimo = None
+    precio_unitario = None
     if precios:
         precio_minimo = min(precios, key=lambda x: x['precio'])
+        unidades = producto['unidades_por_caja']
+        if unidades and unidades > 0:
+            precio_unitario = round(precio_minimo['precio'] / unidades, 2)
 
     conn.close()
+    return render_template(
+        'detalle.html',
+        producto=producto,
+        precios=precios,
+        precio_minimo=precio_minimo,
+        precio_unitario=precio_unitario
+    )
 
-    return render_template('detalle.html', producto=producto, precios=precios, precio_minimo=precio_minimo)
 # -----------------------------
-# 🔹 Editar precio del proveedor
+# 🔹 Editar precio de proveedor
 # -----------------------------
 @app.route("/editar_precio/<int:id>", methods=["GET", "POST"])
 def editar_precio(id):
     conn = conectar()
     cur = conn.cursor()
 
-    # Obtener los datos del precio
     cur.execute("SELECT * FROM precios WHERE id = ?", (id,))
     precio = cur.fetchone()
-
     if not precio:
         conn.close()
         return "Precio no encontrado", 404
 
-    # Obtener el producto relacionado
     cur.execute("SELECT * FROM productos WHERE id = ?", (precio['producto_id'],))
     producto = cur.fetchone()
 
     if request.method == "POST":
         nuevo_proveedor = request.form['proveedor']
         nuevo_precio = request.form['precio']
-
         cur.execute("""
             UPDATE precios
             SET proveedor = ?, precio = ?
@@ -187,22 +240,21 @@ def editar_precio(id):
         """, (nuevo_proveedor, nuevo_precio, id))
         conn.commit()
         conn.close()
-
-        # Redirigir de vuelta al detalle del producto
         return redirect(f"/detalle/{precio['producto_id']}")
 
     conn.close()
     return render_template("editar_precio.html", precio=precio, producto=producto)
 
-
 # -----------------------------
-# 🔹 Eliminar producto
+# 🔹 Eliminar producto y precios
 # -----------------------------
 @app.route("/eliminar/<int:producto_id>")
 def eliminar(producto_id):
     conn = conectar()
-    ejecutar_sql(conn, "DELETE FROM precios WHERE producto_id = ?", (producto_id,))
-    ejecutar_sql(conn, "DELETE FROM productos WHERE id = ?", (producto_id,))
+    cur = conn.cursor()
+    cur.execute("DELETE FROM precios WHERE producto_id = ?", (producto_id,))
+    cur.execute("DELETE FROM productos WHERE id = ?", (producto_id,))
+    conn.commit()
     conn.close()
     return redirect(url_for("index"))
 
@@ -212,7 +264,9 @@ def eliminar(producto_id):
 @app.route("/eliminar_precio/<int:precio_id>")
 def eliminar_precio(precio_id):
     conn = conectar()
-    ejecutar_sql(conn, "DELETE FROM precios WHERE id = ?", (precio_id,))
+    cur = conn.cursor()
+    cur.execute("DELETE FROM precios WHERE id = ?", (precio_id,))
+    conn.commit()
     conn.close()
     return redirect(request.referrer or "/")
 

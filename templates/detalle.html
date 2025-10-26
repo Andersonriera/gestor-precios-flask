@@ -28,10 +28,15 @@
             z-index: 100;
         }
 
+        header .actions {
+            display: flex;
+            gap: 10px;
+        }
+
         header a {
             color: white;
             text-decoration: none;
-            font-size: 16px;
+            font-size: 15px;
             background: #1e3f73;
             padding: 6px 12px;
             border-radius: 6px;
@@ -99,19 +104,14 @@
             transition: 0.2s;
         }
 
-        .btn-delete {
-            background-color: #dc3545;
-        }
-        .btn-delete:hover {
-            background-color: #b02a37;
-        }
+        .btn-delete { background-color: #dc3545; }
+        .btn-delete:hover { background-color: #b02a37; }
 
-        .btn-edit {
-            background-color: #007bff;
-        }
-        .btn-edit:hover {
-            background-color: #0056b3;
-        }
+        .btn-edit { background-color: #007bff; }
+        .btn-edit:hover { background-color: #0056b3; }
+
+        .btn-green { background-color: #28a745; }
+        .btn-green:hover { background-color: #1e7e34; }
 
         .form-section {
             margin-top: 30px;
@@ -149,20 +149,21 @@
         @media (max-width: 600px) {
             header {
                 flex-direction: column;
-                gap: 5px;
+                gap: 6px;
                 font-size: 16px;
                 text-align: center;
             }
-
+            header .actions {
+                flex-direction: column;
+                width: 100%;
+            }
             .container {
                 width: 92%;
                 padding: 15px;
             }
-
             table, th, td {
                 font-size: 13px;
             }
-
             button, .btn {
                 width: 100%;
                 margin: 6px 0;
@@ -174,13 +175,19 @@
 
 <header>
     <span>📦 {{ producto['nombre'] }}</span>
-    <a href="/">← Volver al inicio</a>
+    <div class="actions">
+        <a href="/editar_producto/{{ producto['id'] }}" class="btn-edit">✏️ Editar producto</a>
+        <a href="/">← Volver al inicio</a>
+    </div>
 </header>
 
 <div class="container">
     <div class="info">
         <p><strong>Descripción:</strong> {{ producto['descripcion'] or "Sin descripción" }}</p>
         <p><strong>Unidades por caja:</strong> {{ producto['unidades_por_caja'] }}</p>
+        {% if precio_unitario %}
+            <p><strong>💰 Precio unitario más económico:</strong> ${{ "%.2f"|format(precio_unitario) }}</p>
+        {% endif %}
     </div>
 
     <h3>Precios de Proveedores</h3>
