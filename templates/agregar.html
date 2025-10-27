@@ -2,43 +2,140 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agregar Producto</title>
     <style>
-        body { font-family: Arial; background: #f4f6f8; }
-        .container { max-width: 600px; margin: 50px auto; background: white; padding: 25px; border-radius: 10px; }
-        input, textarea { width: 100%; margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
-        button { background: #2b5797; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
-        button:hover { background: #1a3c6e; }
-        a { color: #2b5797; text-decoration: none; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        header {
+            background-color: #2b5797;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 22px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 30px auto;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            color: #2b5797;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.2s ease;
+        }
+
+        input:focus, textarea:focus {
+            border-color: #2b5797;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background-color: #1e7e34;
+        }
+
+        a.volver {
+            display: inline-block;
+            text-decoration: none;
+            color: #2b5797;
+            margin-top: 15px;
+            text-align: center;
+            width: 100%;
+            font-weight: 500;
+        }
+
+        a.volver:hover {
+            text-decoration: underline;
+        }
+
+        .mensaje {
+            background-color: #ffdddd;
+            color: #a33;
+            border: 1px solid #a33;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                margin: 20px;
+                padding: 20px;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
+
+<header>➕ Agregar nuevo producto</header>
+
 <div class="container">
-{% if mensaje %}
-    <div style="background-color: #ffdddd; color: #a33; border: 1px solid #a33; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
-        {{ mensaje }}
-    </div>
-{% endif %}
+    {% if mensaje %}
+        <div class="mensaje">{{ mensaje }}</div>
+    {% endif %}
 
-    <h2>Agregar nuevo producto</h2>
-{% if mensaje %}
-    <p style="color: red; font-weight: bold;">{{ mensaje }}</p>
-{% endif %}
+    <form method="POST" action="/agregar">
+        <label>Nombre del producto:</label>
+        <input type="text" name="nombre" required>
 
-<form method="POST" action="/agregar">
-    <label>Nombre del producto:</label><br>
-    <input type="text" name="nombre" required><br><br>
+        <label>Descripción:</label>
+        <textarea name="descripcion" rows="3"></textarea>
 
-    <label>Descripción:</label><br>
-    <textarea name="descripcion" rows="3"></textarea><br><br>
+        <label>Unidades por caja:</label>
+        <input type="number" name="unidades_por_caja" min="1" required>
 
-    <label>Unidades por caja:</label><br>
-    <input type="number" name="unidades_por_caja" min="1" required><br><br>
+        <button type="submit">💾 Guardar producto</button>
+    </form>
 
-    <button type="submit">Guardar</button>
-</form>
-    <br>
-    <a href="/">⬅ Volver</a>
+    <a href="/" class="volver">⬅ Volver al inicio</a>
 </div>
+
 </body>
 </html>

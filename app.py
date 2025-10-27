@@ -82,7 +82,13 @@ def index():
 
     cur.close()
     conn.close()
-    return render_template("index.html", productos=productos_con_precios, search=search)
+
+    # 🔥 Forzar recarga de plantilla sin caché
+    response = make_response(render_template("index.html", productos=productos_con_precios, search=search))
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 # -----------------------------
 # 🔹 Agregar producto
@@ -98,28 +104,41 @@ def agregar():
         if not nombre or not unidades_por_caja:
             mensaje = "⚠️ Faltan campos obligatorios."
         else:
+            conn = None
+            cur = None
             try:
                 conn = conectar()
                 cur = conn.cursor()
                 cur.execute("""
                     INSERT INTO productos (nombre, descripcion, unidades_por_caja)
                     VALUES (%s, %s, %s)
-                    RETURNING id
+                    RETURNING id;
                 """, (nombre, descripcion, unidades_por_caja))
                 
-                # 🔹 Obtener el ID del producto recién creado
+                # ✅ Obtener el ID del producto recién creado
                 nuevo_id = cur.fetchone()[0]
                 conn.commit()
+
+                # ✅ Cerrar cursores y conexión correctamente
                 cur.close()
                 conn.close()
 
-                # 🔹 Redirigir directamente a la página de detalle
+                # ✅ Redirigir directamente al detalle del nuevo producto
                 return redirect(f'/detalle/{nuevo_id}')
-            
+
             except psycopg2.IntegrityError:
+                if conn:
+                    conn.rollback()
                 mensaje = "⚠️ El producto ya existe."
             except Exception as e:
-                mensaje = f"❌ Error: {e}"
+                if conn:
+                    conn.rollback()
+                mensaje = f"❌ Error al guardar: {e}"
+            finally:
+                if cur:
+                    cur.close()
+                if conn:
+                    conn.close()
 
     return render_template('agregar.html', mensaje=mensaje)
 
@@ -165,6 +184,20 @@ def editar_producto(id):
     cur.close()
     conn.close()
     return render_template('editar_producto.html', producto=producto, mensaje=mensaje)
+
+@app.route('/eliminar/<int:id>')
+def eliminar(id):
+    try:
+        conn = conectar()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM productos WHERE id = %s", (id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return redirect('/')
+    except Exception as e:
+        return f"❌ Error al eliminar: {e}"
+
 
 # -----------------------------
 # 🔹 Detalle del producto

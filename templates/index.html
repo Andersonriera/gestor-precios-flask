@@ -37,6 +37,43 @@
             margin-bottom: 25px;
         }
 
+        /* 🔍 Buscador simple */
+        .search-box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .search-box input[type="text"] {
+            width: 60%;
+            padding: 10px 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px 0 0 8px;
+            outline: none;
+            transition: 0.2s;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .search-box input[type="text"]:focus {
+            border-color: #2b5797;
+            box-shadow: 0 0 4px rgba(43,87,151,0.4);
+        }
+
+        .search-box button {
+            background-color: #2b5797;
+            border: none;
+            color: white;
+            padding: 10px 16px;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .search-box button:hover {
+            background-color: #1e3e75;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -112,6 +149,10 @@
                 padding: 15px;
             }
 
+            .search-box input[type="text"] {
+                width: 70%;
+            }
+
             a.btn, .add-product {
                 width: 100%;
                 margin-top: 8px;
@@ -126,10 +167,16 @@
 </head>
 <body>
 
-<header>📦 Gestión de Productos</header>
+<header>📦 Gestión de Productos (TEST 1)</header>
 
 <div class="container">
     <a href="/agregar" class="add-product">➕ Agregar nuevo producto</a>
+
+    <!-- 🔍 Buscador simple -->
+    <form action="/" method="get" class="search-box">
+        <input type="text" name="search" placeholder="Buscar producto..." value="{{ search or '' }}">
+        <button type="submit">Buscar</button>
+    </form>
 
     <h2>Listado de productos</h2>
 
@@ -140,7 +187,6 @@
                     <th>Nombre</th>
                     <th>Unidades por Caja</th>
                     <th>Mejor Precio</th>
-                    <th>Precio Unitario</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -152,23 +198,16 @@
                         <td>
                             {% if producto['mejor_precio'] %}
                                 <div class="best-price">
-                                    💰 <strong>S/ {{ "%.2f"|format(producto['mejor_precio']) }}</strong><br>
-                                    <small>Precio por caja</small>
+                                    💰 S/ {{ "%.2f"|format(producto['mejor_precio']) }} / caja<br>
+                                    ⚖️ S/ {{ "%.2f"|format(producto['precio_unitario']) }} por unidad
                                 </div>
                             {% else %}
-                                <span style="color: gray;">Sin precios</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if producto['precio_unitario'] %}
-                                S/ {{ "%.2f"|format(producto['precio_unitario']) }}
-                            {% else %}
-                                <span style="color: gray;">-</span>
+                                <span style="color: gray;">Sin precios registrados</span>
                             {% endif %}
                         </td>
                         <td>
                             <a href="/detalle/{{ producto['id'] }}" class="btn">Ver detalle</a>
-                            <a href="/editar_producto/{{ producto['id'] }}" class="btn" style="background:#17a2b8;">Editar</a>
+                            <a href="/editar_producto/{{ producto['id'] }}" class="btn" style="background:#ffc107; color:black;">Editar</a>
                             <a href="/eliminar/{{ producto['id'] }}" class="btn" style="background:#dc3545;">Eliminar</a>
                         </td>
                     </tr>
