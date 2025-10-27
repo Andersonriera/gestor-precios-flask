@@ -104,11 +104,18 @@ def agregar():
                 cur.execute("""
                     INSERT INTO productos (nombre, descripcion, unidades_por_caja)
                     VALUES (%s, %s, %s)
+                    RETURNING id
                 """, (nombre, descripcion, unidades_por_caja))
+                
+                # 🔹 Obtener el ID del producto recién creado
+                nuevo_id = cur.fetchone()[0]
                 conn.commit()
                 cur.close()
                 conn.close()
-                return redirect('/')
+
+                # 🔹 Redirigir directamente a la página de detalle
+                return redirect(f'/detalle/{nuevo_id}')
+            
             except psycopg2.IntegrityError:
                 mensaje = "⚠️ El producto ya existe."
             except Exception as e:
